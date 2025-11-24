@@ -3,7 +3,7 @@ from tools.shared_tools import transfer_to_agent
 
 # The agent responsible for classifying the user's learning preferences and needs.
 classification_agent = create_react_agent(
-  model = "openai:gpt-4o-mini",
+  model = "openai:gpt-4o",
   prompt = """
   You are an Educational Assessment Specialist. Your role is to understand each learner's knowledge level, learning style, and educational needs through conversation.
 
