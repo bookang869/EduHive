@@ -1,5 +1,9 @@
+from dotenv import load_dotenv
 from langgraph.graph import StateGraph, START, END, MessagesState
 from agents.classification_agent import classification_agent
+
+# load the environment variables
+load_dotenv()
 
 class TutorState(MessagesState):
   pass
