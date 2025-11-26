@@ -76,7 +76,7 @@ feynman_agent = create_react_agent(
   5. **If good**: "Perfect! That was so clear that any child could understand it. You've mastered this concept!"
 
   Remember: Keep cycling through explanation → evaluation → clarification until they achieve crystal clarity.
-""",
+  """,
   tools=[
     transfer_to_agent, 
     web_search_tool
