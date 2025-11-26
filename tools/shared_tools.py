@@ -2,24 +2,24 @@ from langgraph.types import Command
 from langchain_core.tools import tool
 from firecrawl import FirecrawlApp, ScrapeOptions
 import re
+import os
 
-# tool to transfer to an agent
-# graph = Command
 @tool
 def transfer_to_agent(agent_name: str):
   """
   Transfer to the given agent.
 
   Args:
-    agent_name: The name of the agent to transfer to ('quiz_agent', 'teacher_agent', 'feynman_agent')
+    agent_name: The name of the agent to transfer to, one of: 'teacher_agent', 'feynman_agent'
   """
-
-  # return f"Transfer to {agent_name} complete!"
 
   return Command(
     goto = agent_name,
     # currently, we are in a subgraph, so we need to transition to the parent graph
-    graph = Command.PARENT
+    graph = Command.PARENT,
+    update = {
+      "current_agent": agent_name
+    }
   )
   
 @tool
@@ -34,13 +34,16 @@ def web_search_tool(query: str):
     A list of search results with the website content in Markdown (.md) format.
   """
 
+  MAX_RESULTS = 3           # hard cap on how many pages we return
+  MAX_CHARS_RESULT = 5000   # char cap per page (~1500-2500 tokens)
+
   # initialize the FireCrawlApp
-  app = FirecrawlApp(api_key="FIRECRAWL_API_KEY")
+  app = FirecrawlApp(api_key=os.getenv("FIRECRAWL_API_KEY"))
 
   # search the web for information
   response = app.search(
     query=query,
-    limit=5,  # number of results to return
+    limit=MAX_RESULTS,
     scrape_options=ScrapeOptions(
       formats=["markdown"], # format of the results
     )
@@ -52,19 +55,23 @@ def web_search_tool(query: str):
 
   cleaned_chunks = []
 
-  for result in response.data:
+  for result in response.data[:MAX_RESULTS]:
     title = result["title"]
     url = result["url"]
     markdown = result["markdown"]
 
+    cleaned = markdown
+
     # clean the markdown
-    cleaned = re.sub(r"\\+|\n+", "", markdown).strip()
-    cleaned = re.sub(r"\[[^\]]+\]\([^\)]+\)|https?://[^\s]+", "", cleaned)
+    cleaned = re.sub(r"\[[^\]]+\]\([^)]+\)|https?://\S+", "", cleaned)
+
+    # truncate the markdown to the maximum number of characters
+    truncated = cleaned[:MAX_CHARS_RESULT].strip()
 
     cleaned_result = {
       "title": title,
       "url": url,
-      "markdown": markdown,
+      "markdown": truncated,
     }
 
     cleaned_chunks.append(cleaned_result)
