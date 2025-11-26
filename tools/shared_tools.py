@@ -1,6 +1,6 @@
 from langgraph.types import Command
 from langchain_core.tools import tool
-from firecrawl import FireCrawlApp, ScrapeOptions
+from firecrawl import FirecrawlApp, ScrapeOptions
 import re
 
 # tool to transfer to an agent
@@ -35,7 +35,7 @@ def web_search_tool(query: str):
   """
 
   # initialize the FireCrawlApp
-  app = FireCrawlApp(api_key="FIRECRAWL_API_KEY")
+  app = FirecrawlApp(api_key="FIRECRAWL_API_KEY")
 
   # search the web for information
   response = app.search(
