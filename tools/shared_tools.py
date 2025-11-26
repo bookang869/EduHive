@@ -10,7 +10,7 @@ def transfer_to_agent(agent_name: str):
   Transfer to the given agent.
 
   Args:
-    agent_name: The name of the agent to transfer to, one of: 'teacher_agent', 'feynman_agent'
+    agent_name: The name of the agent to transfer to, one of: 'quiz_agent', 'teacher_agent', 'feynman_agent'
   """
 
   return Command(
