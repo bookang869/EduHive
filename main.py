@@ -1,5 +1,7 @@
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, START, END, MessagesState
+import sqlite3
+from langgraph.checkpoint.sqlite import SqliteSaver
 from agents.classification_agent import classification_agent
 from agents.feynman_agent import feynman_agent
 from agents.teacher_agent import teacher_agent
@@ -7,6 +9,10 @@ from agents.quiz_agent import quiz_agent
 
 # load the environment variables
 load_dotenv()
+
+# creates 'memory.db' (sqlite) in the current directory
+# check_same_thread=False is required for multiprocessing
+conn = sqlite3.connect("memory.db", check_same_thread=False)
 
 class TutorState(MessagesState):
   # the latest agent the user was interacting with
@@ -41,4 +47,4 @@ graph_builder.add_conditional_edges(
 )
 graph_builder.add_edge("classification_agent", END)
 
-graph = graph_builder.compile()
+graph = graph_builder.compile(checkpointer=SqliteSaver(conn))
