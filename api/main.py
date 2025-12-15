@@ -79,7 +79,6 @@ async def health_check():
       "checkpoint_available": False,
       "checkpoint_type": "sqlite"
     }
-
     if graph is not None:
       checks["graph_available"] = True
 
