@@ -1,8 +1,9 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
+from models import AgentRequest, AgentResponse
+from websocket_manager import manager
 import uuid
 import sys
 from pathlib import Path
@@ -27,6 +28,7 @@ html = """
     </head>
     <body>
         <h1>WebSocket Chat</h1>
+        <h2>Your ID: <span id="ws-id"></span></h2>
         <form action="" onsubmit="sendMessage(event)">
             <input type="text" id="messageText" autocomplete="off"/>
             <button>Send</button>
@@ -34,7 +36,9 @@ html = """
         <ul id='messages'>
         </ul>
         <script>
-            var ws = new WebSocket("ws://localhost:8000/ws");
+            var client_id = Date.now()
+            document.querySelector("#ws-id").textContent = client_id;
+            var ws = new WebSocket(`ws://localhost:8000/ws/chat/${client_id}`);
             ws.onmessage = function(event) {
                 var messages = document.getElementById('messages')
                 var message = document.createElement('li')
@@ -53,17 +57,6 @@ html = """
 </html>
 """
 
-# --- Pydantic Models ---
-class AgentRequest(BaseModel):
-  """Request model for agent invocation."""
-  prompt: str
-  session_id: str | None = None # optional session ID for conversation persistence
-
-class AgentResponse(BaseModel):
-  """Response model for agent invocation."""
-  response: str
-  session_id: str
-
 # --- REST API Endpoints ---
 @app.get("/")
 async def root():
@@ -79,6 +72,7 @@ async def health_check():
       "checkpoint_available": False,
       "checkpoint_type": "sqlite"
     }
+
     if graph is not None:
       checks["graph_available"] = True
 
@@ -90,7 +84,7 @@ async def health_check():
       raise HTTPException(status_code=503, detail=checks)
     return checks
   except Exception as e:
-    raise HTTPException(status_code=503, detial=f"Unhealthy: {str(e)}")
+    raise HTTPException(status_code=503, detail=f"Unhealthy: {str(e)}")
 
 @app.post("/chat")
 async def chat_endpoint(request: AgentRequest) -> AgentResponse:
@@ -131,27 +125,6 @@ async def chat_endpoint(request: AgentRequest) -> AgentResponse:
     raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 #--- WebSocket Endpoint ---
-class ConnectionManager:
-  def __init__(self):
-    self.active_connections: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-      await websocket.accept()
-      # add a new user to the list of active connections
-      self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-      self.active_connections.remove(websocket)
-    
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-      await websocket.send_text(message)
-    
-    async def broadcast(self, message: str, websocket: WebSocket):
-      for connection in self.active_connections:
-        await connection.send_text(message)
-
-manager = ConnectionManager()
-
 @app.websocket("/ws/chat/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
   # 1. Accept the WebSocket connection
@@ -186,4 +159,4 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 #--- Main ---    
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api.main:app", host="localhost", port=8000, reload=True)
+    uvicorn.run("api.main:app", reload=True)
