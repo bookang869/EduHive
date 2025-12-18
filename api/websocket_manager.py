@@ -15,8 +15,10 @@ class ConnectionManager:
   async def send_personal_message(self, message: str, websocket: WebSocket):
     await websocket.send_text(message)
   
-  async def broadcast(self, message: str):
+  async def broadcast(self, message: str, skip: WebSocket | None = None):
     for connection in self.active_connections:
+      if connection is skip:
+        continue
       await connection.send_text(message)
 
 manager = ConnectionManager()
