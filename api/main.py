@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import HumanMessage
 from models import AgentRequest, AgentResponse
 from websocket_manager import manager
@@ -20,47 +21,15 @@ from auth.throttling import apply_rate_limit  # noqa: E402
 
 app = FastAPI()
 
-html = """
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Chat</title>
-    </head>
-    <body>
-        <h1>WebSocket Chat</h1>
-        <h2>Your ID: <span id="ws-id"></span></h2>
-        <form action="" onsubmit="sendMessage(event)">
-            <input type="text" id="messageText" autocomplete="off"/>
-            <button>Send</button>
-        </form>
-        <ul id='messages'>
-        </ul>
-        <script>
-            var client_id = Date.now()
-            document.querySelector("#ws-id").textContent = client_id;
-            var ws = new WebSocket(`ws://localhost:8000/ws/chat/${client_id}`);
-            ws.onmessage = function(event) {
-                var messages = document.getElementById('messages')
-                var message = document.createElement('li')
-                var content = document.createTextNode(event.data)
-                message.appendChild(content)
-                messages.appendChild(message)
-            };
-            function sendMessage(event) {
-                var input = document.getElementById("messageText")
-                ws.send(input.value)
-                input.value = ''
-                event.preventDefault()
-            }
-        </script>
-    </body>
-</html>
-"""
+frontend_dir = Path(__file__).parent.parent / "frontend"
+static_dir = frontend_dir / "static"
+
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # --- REST API Endpoints ---
 @app.get("/")
 async def root():
-  return HTMLResponse(html)
+  return FileResponse(frontend_dir / "index.html")
 
 @app.get("/health")
 async def health_check():
@@ -125,13 +94,19 @@ async def chat_endpoint(request: AgentRequest) -> AgentResponse:
     raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 #--- WebSocket Endpoint ---
-@app.websocket("/ws/chat/{session_id}")
+@app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
-  # 1. Accept the WebSocket connection
+  # Accept the WebSocket connection
   await manager.connect(websocket)
+
+  # fetch client_id from url or create one if not found
+  client_id = websocket.query_params.get("client_id")
+  if not client_id:
+    client_id = str(uuid.uuid4())
 
   try:
     while True:
+      # Wait for and receive text data from the client
       data = await websocket.receive_text()
 
       # create LangGraph config with session ID for checkpointing
@@ -151,10 +126,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
       response = messages[-1].content
 
       await manager.send_personal_message(response, websocket)
-      await manager.broadcast(f"Session {session_id} says: {data}")
+      await manager.broadcast(f"{client_id}: {data}", skip=websocket)
+      await manager.broadcast(f"{response}", skip=websocket)
   except WebSocketDisconnect:
     manager.disconnect(websocket)
-    await manager.broadcast(f"Session {session_id} has left")
+    await manager.broadcast(f"{client_id} has left {session_id}.")
 
 #--- Main ---    
 if __name__ == "__main__":
