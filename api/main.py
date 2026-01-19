@@ -3,23 +3,49 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import HumanMessage
-from models import AgentRequest, AgentResponse
-from websocket_manager import manager
+from .models import AgentRequest, AgentResponse
+from .websocket_manager import manager
+from auth.throttling import apply_rate_limit
+from mangum import Mangum
+from contextlib import asynccontextmanager
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 import uuid
-import sys
 from pathlib import Path
 
 # import .env variables
 load_dotenv()
 
-# absolute path to the project root
-_project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(_project_root))
+from core.graph import build_graph # noqa: E402
 
-from main import graph  # noqa: E402
-from auth.throttling import apply_rate_limit  # noqa: E402
+# Database path for persistent conversation storage
+db_path = Path(__file__).parent.parent / "memory.db"
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+  """
+  Manage application lifecycle with AsyncSqliteSaver context.
+  This ensures the checkpointer is properly initialized and cleaned up.
+  """
+  # Enter AsyncSqliteSaver context manager
+  async with AsyncSqliteSaver.from_conn_string(str(db_path)) as checkpointer:
+    # Initialize database tables
+    await checkpointer.setup()
+    
+    # Build and compile graph with persistent checkpointer
+    graph = build_graph(checkpointer=checkpointer)
+    
+    # Store graph and checkpointer in app state for use in endpoints
+    app.state.graph = graph
+    app.state.checkpointer = checkpointer
+    
+    # Yield control - FastAPI will serve requests now
+    yield
+    
+    # Cleanup happens automatically when exiting the async with block
+
+app = FastAPI(lifespan=lifespan)
+# Mangum is a library for deploying FastAPI applications to AWS Lambda
+handler = Mangum(app)
 
 frontend_dir = Path(__file__).parent.parent / "frontend"
 static_dir = frontend_dir / "static"
@@ -42,6 +68,7 @@ async def health_check():
       "checkpoint_type": "sqlite"
     }
 
+    graph = getattr(app.state, "graph", None)
     if graph is not None:
       checks["graph_available"] = True
 
@@ -76,6 +103,9 @@ async def chat_endpoint(request: AgentRequest) -> AgentResponse:
 
     # create a human message from the user's prompt
     prompt = HumanMessage(content=request.prompt)
+
+    # Get graph from app state
+    graph = app.state.graph
 
     # invoke the graph with the human message and config (async)
     result = await graph.ainvoke({"messages": [prompt]}, config=config)
@@ -115,6 +145,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
       # create a human message from the user's prompt
       prompt = HumanMessage(content=data)
 
+      # Get graph from app state
+      graph = app.state.graph
+
       # invoke the graph with the human message and config (async)
       result = await graph.ainvoke({"messages": [prompt]}, config=config)
 
@@ -131,8 +164,3 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
   except WebSocketDisconnect:
     manager.disconnect(websocket)
     await manager.broadcast(f"{client_id} has left {session_id}.")
-
-#--- Main ---    
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("api.main:app", reload=True)
