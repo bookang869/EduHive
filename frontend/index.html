@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EduHive</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="brand">
+          <div class="hex-icon" aria-hidden="true"></div>
+          <div>
+            <h1>EduHive</h1>
+            <p class="sub">
+              A hive of teaching agents working together to explain, quiz, classify,
+              and guide learners.
+            </p>
+            <p class="sub highlight">Pick an agent below, then chat live with the hive.</p>
+          </div>
+        </div>
+        <div class="pill offline" id="status-pill">
+          <span class="dot"></span>
+          <span id="status-text">Disconnected</span>
+        </div>
+      </header>
+
+      <div class="grid two-col">
+        <section class="panel" aria-label="Connection and endpoints">
+          <h2>Connect</h2>
+          <p class="hint">Use your session ID to chat with the hive in real time.</p>
+
+          <div class="input-row">
+            <div class="field">
+              <label for="session-id">Session ID</label>
+              <input id="session-id" type="text" autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="input-row" style="margin-top: 8px;">
+            <div class="field">
+              <label for="client-id">Client ID</label>
+              <input id="client-id" type="text" autocomplete="off" />
+            </div>
+            <div class="input-row" style="flex: 0 0 auto; gap: 8px;">
+              <button id="connect-btn" type="button">Connect</button>
+              <button id="disconnect-btn" class="secondary" type="button">Disconnect</button>
+            </div>
+          </div>
+
+          <div class="info-block agents-block">
+            <div class="info-head">
+              <h3>Agents in the hive</h3>
+              <p class="hint">Each bee specializes in a different learning task.</p>
+            </div>
+            <div class="agents">
+              <div class="agent-card">
+                <div class="agent-icon">🧑‍🏫</div>
+                <div>
+                  <h4>Teacher Agent</h4>
+                  <p>Guides lessons, explains concepts, and adapts to learner pace.</p>
+                </div>
+              </div>
+              <div class="agent-card">
+                <div class="agent-icon">🧠</div>
+                <div>
+                  <h4>Feynman Agent</h4>
+                  <p>Simplifies ideas via analogies and asks clarifying questions.</p>
+                </div>
+              </div>
+              <div class="agent-card">
+                <div class="agent-icon">🗂️</div>
+                <div>
+                  <h4>Classification Agent</h4>
+                  <p>Labels topics and routes queries to the right bee.</p>
+                </div>
+              </div>
+              <div class="agent-card">
+                <div class="agent-icon">📝</div>
+                <div>
+                  <h4>Quiz Agent</h4>
+                  <p>Generates bite-sized checks for understanding and practice.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="endpoints-block">
+            <div class="endpoints-head">
+              <h3>API surface</h3>
+              <p class="hint">Minimal overview for integrations.</p>
+            </div>
+            <div class="endpoints">
+              <div class="endpoint">
+                <div class="method get">GET</div>
+                <p class="path">/health</p>
+                <p>Health probe with graph and checkpoint checks.</p>
+              </div>
+              <div class="endpoint">
+                <div class="method post">POST</div>
+                <p class="path">/chat</p>
+                <p>Send a prompt with optional `session_id` for persisted threads.</p>
+              </div>
+              <div class="endpoint">
+                <div class="method ws">WS</div>
+                <p class="path">/ws/{session_id}</p>
+                <p>Realtime chat channel used by the console on this page.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" aria-label="WebSocket console">
+          <h2>WebSocket console</h2>
+          <p class="hint">Console log on top, prompt below.</p>
+
+          <div class="logs" id="log">
+            <div class="log-line log-meta">Awaiting connection...</div>
+          </div>
+
+          <form id="send-form" style="margin-top: 14px;">
+            <label for="message">Prompt</label>
+            <textarea id="message" rows="3" placeholder="Ask anything..." required></textarea>
+            <div class="input-row" style="margin-top: 8px;">
+              <button type="submit">Send message</button>
+              <div class="hint" style="margin: 6px 0 0;">
+                Uses your session for checkpointed conversations. Messages broadcast to other open tabs.
+              </div>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
