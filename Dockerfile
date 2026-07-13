@@ -1,21 +1,14 @@
-# Use AWS Lambda Python base image
-# Using 3.12 for compatibility
-FROM public.ecr.aws/lambda/python:3.12
+FROM python:3.12-slim
 
-# Set working directory
-WORKDIR ${LAMBDA_TASK_ROOT}
+WORKDIR /app
 
-# Copy requirements first for better Docker layer caching
-COPY requirements.txt ${LAMBDA_TASK_ROOT}/
-
-# Install Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-  pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt
 
-# Copy application code (excluding files in .dockerignore)
-COPY . ${LAMBDA_TASK_ROOT}/
+COPY . .
 
-# Set the CMD to your handler
-# The handler is defined in api/main.py as 'handler' (Mangum wraps FastAPI)
-CMD [ "api.main.handler" ]
+EXPOSE 8000
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
+# Lambda deployment: use api.router.lambda_handler with the Lambda base image instead.

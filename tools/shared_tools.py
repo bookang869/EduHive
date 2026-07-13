@@ -1,8 +1,34 @@
+from typing import Annotated
 from langgraph.types import Command
+from langgraph.prebuilt import InjectedState
 from langchain_core.tools import tool
 from firecrawl import FirecrawlApp, ScrapeOptions
 import re
 import os
+
+@tool
+def store_research_topic(
+    topic: str,
+    state: Annotated[dict, InjectedState()],
+) -> Command:
+    """Mark a topic as already-researched so no agent re-searches it after a handoff."""
+    current: list[str] = list(state.get("researched_topics") or [])
+    if topic not in current:
+        current.append(topic)
+    return Command(update={"researched_topics": current})
+
+
+@tool
+def set_deadline(deadline: str) -> Command:
+    """Write the user's study deadline to state. deadline must be YYYY-MM-DD."""
+    return Command(update={"deadline": deadline})
+
+
+@tool
+def set_study_plan(plan: str) -> Command:
+    """Write the inline session study plan to state after Phase 3 assessment."""
+    return Command(update={"study_plan": plan})
+
 
 @tool
 def transfer_to_agent(agent_name: str):
