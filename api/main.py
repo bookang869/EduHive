@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 handler = Mangum(app)
 
-_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:8080").split(",")]
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:4000").split(",")]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
