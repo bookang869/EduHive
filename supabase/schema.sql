@@ -1,5 +1,4 @@
--- Run this in your Supabase SQL editor (or psql) to provision the Phase 1a schema.
--- Phase 2/3 tables (topic_scores, study_guides, flashcards, quizzes, etc.) are added later.
+-- Run this in your Supabase SQL editor (or psql) to provision the Phase 1a/1b schema.
 
 create extension if not exists vector;
 
@@ -14,6 +13,7 @@ create table if not exists users (
 create table if not exists study_sets (
     id          uuid primary key default gen_random_uuid(),
     user_id     uuid references users(id),
+    thread_id   text unique,
     created_at  timestamptz default now()
 );
 
@@ -44,6 +44,14 @@ create table if not exists web_chunks (
     content      text not null,
     embedding    vector(1536),
     created_at   timestamptz default now()
+);
+
+create table if not exists topic_scores (
+    id           uuid primary key default gen_random_uuid(),
+    study_set_id uuid not null references study_sets(id) on delete cascade,
+    topic        text not null,
+    score        int not null check (score between 1 and 10),
+    reason       text
 );
 
 -- ivfflat indexes for cosine similarity search (lists=100 suits up to ~1M rows)

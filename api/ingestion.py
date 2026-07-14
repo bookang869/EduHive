@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
+
+from core.ingestion import MAX_PAGES, run_analyze, run_pdf_ingestion, run_web_ingestion
+
+router = APIRouter()
+
+
+@router.post("/ingest/pdf")
+async def ingest_pdf(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    study_set_id: str = Form(...),
+):
+    fname = (file.filename or "upload.pdf").lower()
+    if not fname.endswith(".pdf"):
+        raise HTTPException(status_code=415, detail="Only PDF files are accepted.")
+
+    content = await file.read()
+
+    try:
+        from pypdf import PdfReader
+        import io
+        pages = len(PdfReader(io.BytesIO(content)).pages)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not read PDF: {e}")
+
+    if pages > MAX_PAGES:
+        raise HTTPException(status_code=400, detail=f"PDF exceeds {MAX_PAGES}-page limit.")
+
+    background_tasks.add_task(run_pdf_ingestion, study_set_id, file.filename or "upload.pdf", content)
+    return {"status": "ingestion started", "study_set_id": study_set_id}
+
+
+class WebIngestRequest(BaseModel):
+    study_set_id: str
+    query: str
+
+
+@router.post("/ingest/web")
+async def ingest_web(request: WebIngestRequest, background_tasks: BackgroundTasks):
+    background_tasks.add_task(run_web_ingestion, request.study_set_id, request.query)
+    return {"status": "ingestion started"}
+
+
+class AnalyzeRequest(BaseModel):
+    study_set_id: str
+
+
+@router.post("/analyze")
+async def analyze(request: AnalyzeRequest, background_tasks: BackgroundTasks):
+    background_tasks.add_task(run_analyze, request.study_set_id)
+    return {"status": "analysis started"}

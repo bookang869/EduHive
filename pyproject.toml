@@ -7,6 +7,8 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.122.0",
     "firecrawl-py==2.16",
+    "pypdf>=4.0.0",
+    "python-multipart>=0.0.9",
     "grandalf==0.8",
     "langchain[openai]==0.3.27",
     "langgraph==0.6.6",
@@ -27,4 +29,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "ipykernel==6.30.1",
+    "pytest-asyncio>=0.24.0",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"

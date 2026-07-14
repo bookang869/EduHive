@@ -1,114 +1,186 @@
-const sessionInput = document.getElementById("session-id");
-const clientInput = document.getElementById("client-id");
-const connectBtn = document.getElementById("connect-btn");
-const disconnectBtn = document.getElementById("disconnect-btn");
-const statusPill = document.getElementById("status-pill");
-const statusText = document.getElementById("status-text");
-const logEl = document.getElementById("log");
-const sendForm = document.getElementById("send-form");
+// --- DOM refs ---
+const statusPill   = document.getElementById("status-pill");
+const statusText   = document.getElementById("status-text");
+const messagesEl   = document.getElementById("messages");
+const sendForm     = document.getElementById("send-form");
 const messageInput = document.getElementById("message");
+const pdfInput     = document.getElementById("pdf-input");
+const attachRow    = document.getElementById("attachment-row");
+const attachPill   = document.getElementById("attachment-pill");
+const removeBtn    = document.getElementById("remove-attachment");
+const agentBar     = document.getElementById("agent-bar");
+const agentLabel   = document.getElementById("agent-label");
+const pipelineBar  = document.getElementById("pipeline-bar");
+const pipelineCheck= document.getElementById("pipeline-check");
+
+const AGENT_LABELS = {
+  classification_agent: "Assessing…",
+  teacher_agent:        "Teaching…",
+  feynman_agent:        "Feynman…",
+  quiz_agent:           "Quiz…",
+};
+
+const STAGE_DONE = {};  // tracks which stages are complete
 
 let socket;
+let studySetId = null;
+let sessionId  = `${Date.now().toString(36)}`;
+let currentBubble = null;  // AI message bubble being streamed
 
-const makeSessionId = () => `${Date.now().toString(36)}`;
-const makeClientId = () => `${Math.random().toString(36).slice(2, 8)}`;
-
+// --- Status helpers ---
 const setStatus = (state, detail) => {
-  statusPill.classList.remove("online", "offline");
-  statusPill.classList.add(state === "online" ? "online" : "offline");
-  statusText.textContent = state === "online" ? "Connected" : "Disconnected";
-  if (detail) {
-    statusText.textContent += ` · ${detail}`;
-  }
+  statusPill.classList.toggle("online", state === "online");
+  statusPill.classList.toggle("offline", state !== "online");
+  statusText.textContent = state === "online" ? `Connected · ${detail}` : "Disconnected";
 };
 
-const log = (text, tone = "meta", speaker) => {
-  const line = document.createElement("div");
-  line.className = "log-line";
-
-  const now = new Date().toLocaleTimeString();
-  const meta = document.createElement("div");
-  meta.className = "log-meta";
-  meta.textContent = now;
-
+// --- Message rendering ---
+function addMessage(role, text) {
+  const wrap = document.createElement("div");
+  wrap.className = `msg msg-${role}`;
   const body = document.createElement("div");
-  body.textContent = speaker ? `${speaker}: ${text}` : text;
-  if (tone === "user") body.classList.add("log-user");
-  if (tone === "server") body.classList.add("log-server");
+  body.className = "msg-body";
+  body.textContent = text;
+  wrap.appendChild(body);
+  // remove welcome screen on first message
+  const welcome = messagesEl.querySelector(".welcome");
+  if (welcome) welcome.remove();
+  messagesEl.appendChild(wrap);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return body;
+}
 
-  line.appendChild(meta);
-  line.appendChild(body);
-  logEl.appendChild(line);
-  logEl.scrollTop = logEl.scrollHeight;
-};
+function startAIBubble() {
+  currentBubble = addMessage("ai", "");
+  return currentBubble;
+}
 
-const connect = () => {
-  const sessionId = (sessionInput.value || "").trim() || makeSessionId();
-  sessionInput.value = sessionId;
-  const clientId = (clientInput.value || "").trim() || makeClientId();
-  clientInput.value = clientId;
+function appendToken(text) {
+  if (!currentBubble) startAIBubble();
+  currentBubble.textContent += text;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
 
-  const protocol = location.protocol === "https:" ? "wss" : "ws";
-  const url = `${protocol}://${location.host}/ws/${encodeURIComponent(
-    sessionId
-  )}?client_id=${encodeURIComponent(clientId)}`;
+function finalizeAIBubble() {
+  currentBubble = null;
+}
 
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.close();
+// --- Agent label ---
+function setAgent(name) {
+  const label = AGENT_LABELS[name] || name;
+  agentLabel.textContent = label;
+  agentBar.style.display = "block";
+}
+
+// --- Pipeline progress ---
+function updatePipeline(stage, done) {
+  pipelineBar.style.display = "flex";
+  const el = document.getElementById(`stage-${stage}`);
+  if (el) {
+    el.classList.toggle("stage-done", done);
+    el.classList.toggle("stage-active", !done);
   }
+  STAGE_DONE[stage] = done;
+  if (done && stage === "weak_topic") {
+    pipelineCheck.style.display = "inline";
+  }
+}
 
+// --- WebSocket ---
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const url = `${proto}://${location.host}/ws/${encodeURIComponent(sessionId)}`;
+
+  if (socket && socket.readyState === WebSocket.OPEN) socket.close();
   socket = new WebSocket(url);
-  log(`Connecting to ${url}...`);
 
-  socket.onopen = () => {
-    setStatus("online", `${sessionId} · ${clientId}`);
-    log(`Connected on session ${sessionId}`, "server");
+  socket.onopen = () => setStatus("online", sessionId);
+  socket.onclose = () => setStatus("offline");
+  socket.onerror = () => setStatus("offline");
+
+  socket.onmessage = (ev) => {
+    let frame;
+    try { frame = JSON.parse(ev.data); } catch { return; }
+
+    switch (frame.type) {
+      case "session":
+        studySetId = frame.study_set_id;
+        break;
+      case "token":
+        appendToken(frame.content);
+        break;
+      case "agent_switch":
+        if (currentBubble) finalizeAIBubble();
+        setAgent(frame.agent);
+        break;
+      case "task_progress":
+        updatePipeline(frame.stage, frame.done);
+        break;
+    }
   };
+}
 
-  socket.onmessage = (event) => {
-    log(event.data, "server");
-  };
+// auto-connect on load
+connect();
 
-  socket.onclose = () => {
-    setStatus("offline");
-    log("Connection closed");
-  };
-
-  socket.onerror = (error) => {
-    setStatus("offline");
-    log("WebSocket error. Check server availability.", "server");
-    console.error(error);
-  };
-};
-
-const disconnect = () => {
-  if (socket) {
-    socket.close();
-    socket = null;
-  }
-  setStatus("offline");
-  log("Disconnected by user");
-};
-
-connectBtn.addEventListener("click", connect);
-disconnectBtn.addEventListener("click", disconnect);
-
-sendForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const message = messageInput.value.trim();
-  if (!message) return;
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    log("Connect first to send messages.", "server");
-    return;
-  }
-  socket.send(message);
-  const speaker = (clientInput.value || "").trim() || "User";
-  log(message, "user", speaker);
-  messageInput.value = "";
-  messageInput.focus();
+// --- PDF attachment ---
+pdfInput.addEventListener("change", () => {
+  const file = pdfInput.files[0];
+  if (!file) return;
+  attachPill.textContent = `📎 ${file.name}`;
+  attachRow.style.display = "flex";
 });
 
-// Prefill and auto-connect for a fast smoke-test experience
-sessionInput.value = makeSessionId();
-clientInput.value = makeClientId();
-setStatus("offline", `${sessionInput.value} · ${clientInput.value}`);
+removeBtn.addEventListener("click", () => {
+  pdfInput.value = "";
+  attachRow.style.display = "none";
+});
+
+// --- Send ---
+sendForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = messageInput.value.trim();
+  if (!text) return;
+
+  // ensure connected
+  if (!socket || socket.readyState !== WebSocket.OPEN) connect();
+
+  // wait for handshake (studySetId) before uploading PDF
+  if (pdfInput.files[0] && !studySetId) {
+    await new Promise((resolve) => {
+      const check = setInterval(() => { if (studySetId) { clearInterval(check); resolve(); } }, 100);
+    });
+  }
+
+  addMessage("user", text);
+  messageInput.value = "";
+  messageInput.style.height = "auto";
+  currentBubble = null;
+
+  // upload PDF in parallel with sending the message
+  const file = pdfInput.files[0];
+  if (file && studySetId) {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("study_set_id", studySetId);
+    fetch("/ingest/pdf", { method: "POST", body: fd }).catch(console.error);
+    pdfInput.value = "";
+    attachRow.style.display = "none";
+  }
+
+  socket.send(JSON.stringify({ message: text }));
+});
+
+// auto-grow textarea
+messageInput.addEventListener("input", () => {
+  messageInput.style.height = "auto";
+  messageInput.style.height = Math.min(messageInput.scrollHeight, 200) + "px";
+});
+
+// Enter to send (Shift+Enter for newline)
+messageInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendForm.dispatchEvent(new Event("submit", { cancelable: true }));
+  }
+});

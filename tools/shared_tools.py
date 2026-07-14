@@ -1,33 +1,68 @@
-from typing import Annotated
-from langgraph.types import Command
-from langgraph.prebuilt import InjectedState
-from langchain_core.tools import tool
-from firecrawl import FirecrawlApp, ScrapeOptions
+import asyncio
 import re
 import os
+from typing import Annotated
+
+from firecrawl import FirecrawlApp, ScrapeOptions
+from langchain_core.messages import ToolMessage
+from langchain_core.tools import InjectedToolCallId, tool
+from langgraph.prebuilt import InjectedState
+from langgraph.types import Command
 
 @tool
 def store_research_topic(
     topic: str,
     state: Annotated[dict, InjectedState()],
+    tool_call_id: Annotated[str, InjectedToolCallId()],
 ) -> Command:
     """Mark a topic as already-researched so no agent re-searches it after a handoff."""
     current: list[str] = list(state.get("researched_topics") or [])
     if topic not in current:
         current.append(topic)
-    return Command(update={"researched_topics": current})
+    return Command(update={
+        "researched_topics": current,
+        "messages": [ToolMessage(content="Stored.", tool_call_id=tool_call_id)],
+    })
 
 
 @tool
-def set_deadline(deadline: str) -> Command:
+def set_deadline(
+    deadline: str,
+    tool_call_id: Annotated[str, InjectedToolCallId()],
+) -> Command:
     """Write the user's study deadline to state. deadline must be YYYY-MM-DD."""
-    return Command(update={"deadline": deadline})
+    return Command(update={
+        "deadline": deadline,
+        "messages": [ToolMessage(content="Deadline set.", tool_call_id=tool_call_id)],
+    })
 
 
 @tool
-def set_study_plan(plan: str) -> Command:
+def set_study_plan(
+    plan: str,
+    tool_call_id: Annotated[str, InjectedToolCallId()],
+) -> Command:
     """Write the inline session study plan to state after Phase 3 assessment."""
-    return Command(update={"study_plan": plan})
+    return Command(update={
+        "study_plan": plan,
+        "messages": [ToolMessage(content="Study plan set.", tool_call_id=tool_call_id)],
+    })
+
+
+@tool
+async def trigger_web_ingestion(
+    topic: str,
+    state: Annotated[dict, InjectedState()],
+    tool_call_id: Annotated[str, InjectedToolCallId()],
+) -> Command:
+    """Trigger background web search ingestion for the identified topic. Call after Phase 1."""
+    study_set_id = state.get("study_set_id")
+    if study_set_id:
+        from core.ingestion import run_web_ingestion
+        asyncio.create_task(run_web_ingestion(study_set_id, topic))
+    return Command(update={
+        "messages": [ToolMessage(content="Web ingestion started.", tool_call_id=tool_call_id)],
+    })
 
 
 @tool

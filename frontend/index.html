@@ -6,131 +6,84 @@
     <title>EduHive</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
-  <body>
-    <div class="page">
-      <header>
+  <body class="chat-layout">
+    <div class="chat-shell">
+      <!-- Sidebar -->
+      <aside class="sidebar">
         <div class="brand">
           <div class="hex-icon" aria-hidden="true"></div>
-          <div>
-            <h1>EduHive</h1>
-            <p class="sub">
-              A hive of teaching agents working together to explain, quiz, classify,
-              and guide learners.
-            </p>
-            <p class="sub highlight">Pick an agent below, then chat live with the hive.</p>
+          <h1>EduHive</h1>
+        </div>
+        <p class="sub">A hive of teaching agents working together to explain, quiz, and guide learners.</p>
+
+        <div class="agents-list">
+          <div class="agent-card"><span class="agent-icon">🧑‍🏫</span><span>Teacher Agent</span></div>
+          <div class="agent-card"><span class="agent-icon">🧠</span><span>Feynman Agent</span></div>
+          <div class="agent-card"><span class="agent-icon">🗂️</span><span>Classification Agent</span></div>
+          <div class="agent-card"><span class="agent-icon">📝</span><span>Quiz Agent</span></div>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="pill offline" id="status-pill">
+            <span class="dot"></span>
+            <span id="status-text">Disconnected</span>
           </div>
         </div>
-        <div class="pill offline" id="status-pill">
-          <span class="dot"></span>
-          <span id="status-text">Disconnected</span>
+      </aside>
+
+      <!-- Main chat area -->
+      <main class="chat-main">
+        <!-- Agent label bar -->
+        <div class="agent-bar" id="agent-bar" style="display:none">
+          <span id="agent-label"></span>
         </div>
-      </header>
 
-      <div class="grid two-col">
-        <section class="panel" aria-label="Connection and endpoints">
-          <h2>Connect</h2>
-          <p class="hint">Use your session ID to chat with the hive in real time.</p>
+        <!-- Pipeline progress bar -->
+        <div class="pipeline-bar" id="pipeline-bar" style="display:none">
+          <div class="pipeline-stages">
+            <span class="stage" id="stage-ingestion">Ingesting materials…</span>
+            <span class="stage-sep">›</span>
+            <span class="stage" id="stage-weak_topic">Identifying weak topics…</span>
+            <span class="stage-sep">›</span>
+            <span class="stage" id="stage-study_plan">Generating study plan…</span>
+          </div>
+          <span class="pipeline-check" id="pipeline-check" style="display:none">✓ Ready</span>
+        </div>
 
-          <div class="input-row">
-            <div class="field">
-              <label for="session-id">Session ID</label>
-              <input id="session-id" type="text" autocomplete="off" />
-            </div>
+        <!-- Messages -->
+        <div class="messages" id="messages">
+          <div class="welcome">
+            <div class="hex-icon large" aria-hidden="true"></div>
+            <h2>What do you want to learn today?</h2>
+            <p>Attach a PDF (optional) and describe your topic below. EduHive will assess your level and connect you with the right agent.</p>
+          </div>
+        </div>
+
+        <!-- Input area -->
+        <form class="input-area" id="send-form">
+          <!-- PDF attachment pill -->
+          <div class="attachment-row" id="attachment-row" style="display:none">
+            <span class="attachment-pill" id="attachment-pill"></span>
+            <button type="button" class="remove-attachment secondary" id="remove-attachment">✕</button>
           </div>
 
-          <div class="input-row" style="margin-top: 8px;">
-            <div class="field">
-              <label for="client-id">Client ID</label>
-              <input id="client-id" type="text" autocomplete="off" />
-            </div>
-            <div class="input-row" style="flex: 0 0 auto; gap: 8px;">
-              <button id="connect-btn" type="button">Connect</button>
-              <button id="disconnect-btn" class="secondary" type="button">Disconnect</button>
-            </div>
+          <div class="input-row-chat">
+            <label class="paperclip-btn" title="Attach PDF">
+              <input type="file" id="pdf-input" accept=".pdf" hidden />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </label>
+            <textarea
+              id="message"
+              rows="1"
+              placeholder="Ask anything…"
+              required
+            ></textarea>
+            <button type="submit" class="send-btn" aria-label="Send">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
           </div>
-
-          <div class="info-block agents-block">
-            <div class="info-head">
-              <h3>Agents in the hive</h3>
-              <p class="hint">Each bee specializes in a different learning task.</p>
-            </div>
-            <div class="agents">
-              <div class="agent-card">
-                <div class="agent-icon">🧑‍🏫</div>
-                <div>
-                  <h4>Teacher Agent</h4>
-                  <p>Guides lessons, explains concepts, and adapts to learner pace.</p>
-                </div>
-              </div>
-              <div class="agent-card">
-                <div class="agent-icon">🧠</div>
-                <div>
-                  <h4>Feynman Agent</h4>
-                  <p>Simplifies ideas via analogies and asks clarifying questions.</p>
-                </div>
-              </div>
-              <div class="agent-card">
-                <div class="agent-icon">🗂️</div>
-                <div>
-                  <h4>Classification Agent</h4>
-                  <p>Labels topics and routes queries to the right bee.</p>
-                </div>
-              </div>
-              <div class="agent-card">
-                <div class="agent-icon">📝</div>
-                <div>
-                  <h4>Quiz Agent</h4>
-                  <p>Generates bite-sized checks for understanding and practice.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="endpoints-block">
-            <div class="endpoints-head">
-              <h3>API surface</h3>
-              <p class="hint">Minimal overview for integrations.</p>
-            </div>
-            <div class="endpoints">
-              <div class="endpoint">
-                <div class="method get">GET</div>
-                <p class="path">/health</p>
-                <p>Health probe with graph and checkpoint checks.</p>
-              </div>
-              <div class="endpoint">
-                <div class="method post">POST</div>
-                <p class="path">/chat</p>
-                <p>Send a prompt with optional `session_id` for persisted threads.</p>
-              </div>
-              <div class="endpoint">
-                <div class="method ws">WS</div>
-                <p class="path">/ws/{session_id}</p>
-                <p>Realtime chat channel used by the console on this page.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel" aria-label="WebSocket console">
-          <h2>WebSocket console</h2>
-          <p class="hint">Console log on top, prompt below.</p>
-
-          <div class="logs" id="log">
-            <div class="log-line log-meta">Awaiting connection...</div>
-          </div>
-
-          <form id="send-form" style="margin-top: 14px;">
-            <label for="message">Prompt</label>
-            <textarea id="message" rows="3" placeholder="Ask anything..." required></textarea>
-            <div class="input-row" style="margin-top: 8px;">
-              <button type="submit">Send message</button>
-              <div class="hint" style="margin: 6px 0 0;">
-                Uses your session for checkpointed conversations. Messages broadcast to other open tabs.
-              </div>
-            </div>
-          </form>
-        </section>
-      </div>
+        </form>
+      </main>
     </div>
 
     <script src="/static/app.js"></script>

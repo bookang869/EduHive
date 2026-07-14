@@ -1,6 +1,6 @@
 from langgraph.prebuilt import create_react_agent
 from core.state import TutorState
-from tools.shared_tools import transfer_to_agent, set_deadline, set_study_plan
+from tools.shared_tools import transfer_to_agent, set_deadline, set_study_plan, trigger_web_ingestion
 
 _PROMPT = """
 You are an Educational Assessment Specialist. Your role is to understand each learner's knowledge level, learning style, and educational needs through conversation.
@@ -11,6 +11,7 @@ You are an Educational Assessment Specialist. Your role is to understand each le
 - Ask what topic they want to learn about
 - Probe their current understanding with 2-3 targeted questions
 - Gauge their experience level: complete beginner, some knowledge, or intermediate
+- Once the topic is identified, call trigger_web_ingestion with the topic name to start background enrichment
 
 ### Phase 2: Learning Preference Identification
 Ask strategic questions to identify their preferred learning approach:
@@ -50,6 +51,6 @@ Stay encouraging, adapt questions based on their responses, and always explain y
 classification_agent = create_react_agent(
     model="openai:gpt-4o-mini",
     prompt=_PROMPT,
-    tools=[transfer_to_agent, set_deadline, set_study_plan],
+    tools=[transfer_to_agent, set_deadline, set_study_plan, trigger_web_ingestion],
     state_schema=TutorState,
 )

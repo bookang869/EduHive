@@ -1,22 +1,13 @@
 from __future__ import annotations
-from openai import AsyncOpenAI
-
-_pool = None
-_client: AsyncOpenAI | None = None
-
-
-def init_pool(pool) -> None:
-    global _pool, _client
-    _pool = pool
-    _client = AsyncOpenAI()
+import core.db as _db
 
 
 async def retrieve_context(query: str, study_set_id: str, k: int = 5) -> list[str]:
     """Return up to k text chunks from file_chunks + web_chunks ordered by cosine similarity."""
-    if _pool is None or not query.strip():
+    if _db._pool is None or not query.strip():
         return []
 
-    resp = await _client.embeddings.create(model="text-embedding-3-small", input=query)
+    resp = await _db._client.embeddings.create(model="text-embedding-3-small", input=query)
     vec_str = "[" + ",".join(f"{v:.8f}" for v in resp.data[0].embedding) + "]"
 
     sql = """
@@ -28,7 +19,7 @@ async def retrieve_context(query: str, study_set_id: str, k: int = 5) -> list[st
         ORDER BY dist LIMIT %s
     """
 
-    async with _pool.connection() as conn:
+    async with _db._pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute(sql, (vec_str, study_set_id, k, vec_str, study_set_id, k, k))
             rows = await cur.fetchall()

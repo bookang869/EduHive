@@ -1,3 +1,4 @@
+import json
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -28,7 +29,7 @@ async def lifespan(app: FastAPI):
     if DATABASE_URL:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
         from psycopg_pool import AsyncConnectionPool
-        from core.rag import init_pool
+        from core.db import init_pool
 
         pool = AsyncConnectionPool(DATABASE_URL, open=False)
         await pool.open()
@@ -69,6 +70,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 handler = Mangum(app)
+
+from .ingestion import router as ingestion_router  # noqa: E402
+app.include_router(ingestion_router)
 
 frontend_dir = Path(__file__).parent.parent / "frontend"
 static_dir = frontend_dir / "static"
@@ -127,23 +131,69 @@ async def chat_endpoint(request: AgentRequest) -> AgentResponse:
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await manager.connect(websocket)
-    client_id = websocket.query_params.get("client_id") or str(uuid.uuid4())
+
+    study_set_id: str | None = None
+    if DATABASE_URL:
+        from core.db import create_study_set
+        study_set_id = await create_study_set(session_id)
+
+    from core.progress import register, unregister
+    progress_q = register(study_set_id) if study_set_id else None
+
+    # handshake — client needs study_set_id before uploading PDFs
+    await websocket.send_json({"type": "session", "study_set_id": study_set_id, "thread_id": session_id})
 
     try:
         while True:
-            data = await websocket.receive_text()
+            raw = await websocket.receive_text()
             apply_rate_limit(session_id)
+
+            try:
+                payload = json.loads(raw)
+                message = payload.get("message", raw)
+            except (json.JSONDecodeError, AttributeError):
+                message = raw
+
             config = {"configurable": {"thread_id": session_id}}
-            result = await app.state.graph.ainvoke(
-                {"messages": [HumanMessage(content=data)]}, config=config
-            )
-            messages = result.get("messages", [])
-            if not messages:
-                continue
-            response = messages[-1].content
-            await manager.send_personal_message(response, websocket)
-            await manager.broadcast(f"{client_id}: {data}", skip=websocket)
-            await manager.broadcast(response, skip=websocket)
+            invoke_input: dict = {"messages": [HumanMessage(content=message)]}
+            if study_set_id:
+                invoke_input["study_set_id"] = study_set_id
+
+            # signal that classification_agent is starting
+            await websocket.send_json({"type": "agent_switch", "agent": "classification_agent"})
+
+            async for event in app.state.graph.astream_events(invoke_input, config, version="v2"):
+                kind = event["event"]
+
+                if kind == "on_chat_model_stream":
+                    chunk = event["data"].get("chunk")
+                    if chunk and chunk.content:
+                        text = chunk.content
+                        if isinstance(text, list):
+                            text = "".join(
+                                c.get("text", "") for c in text if isinstance(c, dict)
+                            )
+                        if text:
+                            await websocket.send_json({"type": "token", "content": text})
+
+                elif kind == "on_tool_start" and event.get("name") == "transfer_to_agent":
+                    agent_name = (event["data"].get("input") or {}).get("agent_name", "")
+                    if agent_name:
+                        await websocket.send_json({"type": "agent_switch", "agent": agent_name})
+
+                # drain any queued progress events after each LangGraph event
+                if progress_q:
+                    while not progress_q.empty():
+                        await websocket.send_json(progress_q.get_nowait())
+
+            # final drain after stream ends
+            if progress_q:
+                while not progress_q.empty():
+                    await websocket.send_json(progress_q.get_nowait())
+
     except WebSocketDisconnect:
+        pass
+    finally:
         manager.disconnect(websocket)
-        await manager.broadcast(f"{client_id} has left {session_id}.")
+        if study_set_id:
+            unregister(study_set_id)
