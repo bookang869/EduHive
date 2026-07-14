@@ -9,4 +9,8 @@ class AgentResponse(BaseModel):
   """Response model for agent invocation."""
   response: str
   session_id: str
-  
+
+class UserUpsertRequest(BaseModel):
+  google_sub: str
+  email: str
+  name: str | None = None

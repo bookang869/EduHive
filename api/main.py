@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage
 from mangum import Mangum
 
-from .models import AgentRequest, AgentResponse
+from .models import AgentRequest, AgentResponse, UserUpsertRequest
 from .websocket_manager import manager
 from auth.throttling import apply_rate_limit
 
@@ -28,11 +28,12 @@ async def lifespan(app: FastAPI):
     if DATABASE_URL:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
         from psycopg_pool import AsyncConnectionPool
-        from core.db import init_pool
+        from core.db import init_pool, setup_users_table
 
         pool = AsyncConnectionPool(DATABASE_URL, open=False)
         await pool.open()
         init_pool(pool)
+        await setup_users_table()
 
         async with AsyncPostgresSaver.from_conn_string(DATABASE_URL) as checkpointer:
             await checkpointer.setup()
@@ -86,6 +87,15 @@ app.include_router(ingestion_router)
 @app.get("/")
 async def root():
     return {"service": "EduHive API", "docs": "/docs"}
+
+
+@app.post("/users/upsert")
+async def upsert_user_endpoint(body: UserUpsertRequest):
+    if not DATABASE_URL:
+        return {"status": "skipped"}
+    from core.db import upsert_user
+    await upsert_user(body.google_sub, body.email, body.name)
+    return {"status": "ok"}
 
 
 @app.get("/health")

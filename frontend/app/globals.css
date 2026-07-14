@@ -30,21 +30,7 @@ body {
   min-height: 100svh;
 }
 
-/* ─── Upload screen ─────────────────────────────────── */
-
-.upload-screen {
-  display: flex;
-  flex-direction: column;
-  min-height: 100svh;
-}
-
-.upload-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 32px;
-  border-bottom: 1px solid var(--border);
-}
+/* ─── Brand ─────────────────────────────────────────── */
 
 .brand {
   display: flex;
@@ -57,169 +43,6 @@ body {
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--text);
-}
-
-.upload-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px 64px;
-  gap: 32px;
-}
-
-.upload-hero {
-  text-align: center;
-  max-width: 540px;
-}
-
-.hero-title {
-  font-size: clamp(28px, 5vw, 44px);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.12;
-  margin-bottom: 16px;
-}
-
-.hero-accent {
-  color: var(--accent);
-  text-shadow: 0 0 40px rgba(246,196,84,0.35);
-}
-
-.hero-sub {
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1.65;
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-/* Drop zone — the signature element */
-.drop-zone {
-  width: 100%;
-  max-width: 520px;
-  min-height: 230px;
-  border: 1.5px dashed rgba(246,196,84,0.28);
-  border-radius: 20px;
-  background:
-    repeating-linear-gradient(
-      60deg,
-      rgba(246,196,84,0.04) 0,
-      rgba(246,196,84,0.04) 14px,
-      transparent 14px,
-      transparent 28px
-    ),
-    rgba(255,255,255,0.015);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  cursor: pointer;
-  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
-  padding: 36px 32px;
-  position: relative;
-  overflow: hidden;
-}
-
-.drop-zone:hover,
-.drop-zone.drag-over {
-  border-color: rgba(246,196,84,0.65);
-  background:
-    radial-gradient(circle at 50% 50%, rgba(246,196,84,0.12) 0%, transparent 65%),
-    repeating-linear-gradient(
-      60deg,
-      rgba(246,196,84,0.08) 0,
-      rgba(246,196,84,0.08) 14px,
-      transparent 14px,
-      transparent 28px
-    ),
-    rgba(255,255,255,0.025);
-  box-shadow:
-    0 0 60px rgba(246,196,84,0.10),
-    inset 0 0 30px rgba(246,196,84,0.04);
-}
-
-.drop-title {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.drop-sub {
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.file-pill {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(246,196,84,0.12);
-  border: 1px solid rgba(246,196,84,0.3);
-  color: var(--accent);
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.remove-file {
-  background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-  padding: 0 2px;
-  transition: color 120ms;
-}
-
-.remove-file:hover { color: var(--text); }
-
-.start-btn {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #120d17;
-  border: none;
-  border-radius: 12px;
-  padding: 14px 36px;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 8px 28px rgba(245,158,11,0.38);
-  transition: transform 140ms ease, box-shadow 140ms ease;
-  letter-spacing: -0.01em;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: inherit;
-}
-
-.start-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 38px rgba(245,158,11,0.48);
-}
-
-.start-btn:active { transform: translateY(0); }
-
-.agent-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-}
-
-.agent-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 13px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.02);
-  font-size: 13px;
-  color: var(--muted);
 }
 
 /* ─── Status pill ───────────────────────────────────── */
@@ -246,6 +69,67 @@ body {
 
 .status-pill.online .dot { background: #33e0b8; }
 .status-pill.online { color: var(--text); }
+
+/* ─── Auth UI ───────────────────────────────────────── */
+
+.auth-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+}
+
+.auth-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.auth-name {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  transition: color 120ms;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.auth-btn:hover { color: var(--text); }
+
+.auth-btn-primary {
+  background: rgba(246,196,84,0.08);
+  border: 1px solid rgba(246,196,84,0.25);
+  border-radius: 8px;
+  color: var(--accent);
+  padding: 7px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+  margin-top: 10px;
+  transition: background 120ms;
+}
+
+.auth-btn-primary:hover { background: rgba(246,196,84,0.15); }
 
 /* ─── Chat shell ────────────────────────────────────── */
 
@@ -368,7 +252,6 @@ body {
   border-radius: 14px;
   font-size: 15px;
   line-height: 1.7;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
@@ -376,12 +259,54 @@ body {
   background: linear-gradient(135deg, rgba(246,196,84,0.15), rgba(245,158,11,0.20));
   border: 1px solid rgba(246,196,84,0.22);
   border-bottom-right-radius: 4px;
+  white-space: pre-wrap;
 }
 
 .msg-ai .msg-body {
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
+}
+
+/* ─── Prose (markdown) ──────────────────────────────── */
+
+.prose p               { margin-bottom: 0.7em; }
+.prose p:last-child    { margin-bottom: 0; }
+.prose ul, .prose ol   { padding-left: 1.4em; margin-bottom: 0.7em; }
+.prose li              { margin-bottom: 0.2em; }
+.prose h1              { font-size: 1.25em; font-weight: 700; letter-spacing: -0.02em; margin: 0.8em 0 0.4em; }
+.prose h2              { font-size: 1.1em;  font-weight: 700; letter-spacing: -0.02em; margin: 0.75em 0 0.35em; }
+.prose h3              { font-size: 1em;    font-weight: 600; margin: 0.6em 0 0.3em; }
+.prose code            { background: rgba(246,196,84,0.1); color: var(--accent); padding: 1px 6px; border-radius: 4px; font-size: 0.875em; font-family: 'Menlo', 'Monaco', monospace; }
+.prose pre             { background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; overflow-x: auto; margin-bottom: 0.7em; }
+.prose pre code        { background: none; color: var(--text); padding: 0; font-size: 0.85em; }
+.prose blockquote      { border-left: 3px solid rgba(246,196,84,0.4); padding-left: 12px; color: var(--muted); margin: 0.5em 0; }
+.prose strong          { color: var(--text); font-weight: 600; }
+.prose a               { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ─── Pipeline bar ──────────────────────────────────── */
+
+.pipeline-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 7px 20px;
+  border-top: 1px solid var(--border);
+  background: rgba(255,255,255,0.015);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.pipeline-step        { color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.pipeline-step.active { color: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+.pipeline-step.done   { color: #33e0b8; }
+.pipeline-step.error  { color: #ff7b72; }
+.pipeline-sep         { color: var(--border); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
 }
 
 /* ─── Input area ────────────────────────────────────── */
@@ -496,7 +421,4 @@ body {
 
 @media (max-width: 640px) {
   .sidebar { display: none; }
-  .upload-header { padding: 16px 20px; }
-  .upload-main { padding: 32px 16px 48px; }
-  .hero-title { font-size: 26px; }
 }

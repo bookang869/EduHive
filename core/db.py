@@ -11,6 +11,33 @@ def init_pool(pool) -> None:
     _client = AsyncOpenAI()
 
 
+async def setup_users_table() -> None:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    google_sub TEXT UNIQUE NOT NULL,
+                    email TEXT NOT NULL,
+                    name TEXT,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                )
+            """)
+        await conn.commit()
+
+
+async def upsert_user(google_sub: str, email: str, name: str | None) -> None:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """INSERT INTO users (google_sub, email, name)
+                   VALUES (%s, %s, %s)
+                   ON CONFLICT (google_sub) DO UPDATE SET email = EXCLUDED.email, name = EXCLUDED.name""",
+                (google_sub, email, name),
+            )
+        await conn.commit()
+
+
 async def create_study_set(thread_id: str) -> str:
     """Create or return existing study_set for this WebSocket thread."""
     async with _pool.connection() as conn:

@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, Fragment } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
+import ReactMarkdown from 'react-markdown';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -17,6 +19,12 @@ const AGENT_LABEL = {
   feynman_agent:        'Feynman…',
   quiz_agent:           'Quiz…',
 };
+
+const PIPELINE_STAGES = [
+  { key: 'ingestion',  label: 'Ingesting' },
+  { key: 'weak_topic', label: 'Analyzing topics' },
+  { key: 'study_plan', label: 'Study plan ready' },
+];
 
 function HexIcon({ size = 44 }) {
   const innerPct = '18%';
@@ -37,29 +45,33 @@ function HexIcon({ size = 44 }) {
 }
 
 export default function Page() {
-  const [view,        setView]        = useState('upload');
-  const [file,        setFile]        = useState(null);
+  const { data: session } = useSession();
   const [messages,    setMessages]    = useState([]);
   const [input,       setInput]       = useState('');
   const [connected,   setConnected]   = useState(false);
   const [activeAgent, setActiveAgent] = useState(null);
-  const [dragOver,    setDragOver]    = useState(false);
+  const [pipeline,    setPipeline]    = useState({});
+  const [file,        setFile]        = useState(null);
 
-  const wsRef         = useRef(null);
-  const sessionId     = useRef(Date.now().toString(36));
-  const studySetId    = useRef(null);
-  const messagesEnd   = useRef(null);
-  const textareaRef   = useRef(null);
-  const fileInputRef  = useRef(null);
-  const chatFileRef   = useRef(null);
+  const wsRef          = useRef(null);
+  const sessionId      = useRef(Date.now().toString(36));
+  const studySetId     = useRef(null);
+  const messagesEnd    = useRef(null);
+  const textareaRef    = useRef(null);
+  const chatFileRef    = useRef(null);
+  const pipelineFadeId = useRef(null);
+
+  const wsKey = session?.user?.sub ?? sessionId.current;
 
   const connect = useCallback(() => {
+    studySetId.current = null;
     const proto  = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const wsBase = API.replace(/^https?/, proto);
-    const ws     = new WebSocket(`${wsBase}/ws/${sessionId.current}`);
+    const ws     = new WebSocket(`${wsBase}/ws/${wsKey}`);
 
     ws.onopen  = () => setConnected(true);
-    ws.onclose = () => { setConnected(false); wsRef.current = null; };
+    // ponytail: identity check prevents stale onclose from nulling the live ref (Strict Mode double-mount)
+    ws.onclose = () => { setConnected(false); if (wsRef.current === ws) wsRef.current = null; };
     ws.onerror = () => setConnected(false);
 
     ws.onmessage = (ev) => {
@@ -84,29 +96,33 @@ export default function Page() {
             ? [...prev.slice(0, -1), { ...last, streaming: false }]
             : prev;
         });
+      } else if (frame.type === 'task_progress') {
+        const status = frame.error ? 'error' : (frame.done ? 'done' : 'active');
+        setPipeline(prev => ({ ...prev, [frame.stage]: status }));
+        if (frame.stage === 'study_plan' && frame.done && !frame.error) {
+          clearTimeout(pipelineFadeId.current);
+          pipelineFadeId.current = setTimeout(() => setPipeline({}), 3000);
+        } else if (frame.error) {
+          clearTimeout(pipelineFadeId.current);
+          pipelineFadeId.current = setTimeout(() => setPipeline({}), 5000);
+        }
       }
     };
 
     wsRef.current = ws;
-  }, []);
+  }, [wsKey]);
+
+  useEffect(() => {
+    connect();
+    return () => {
+      wsRef.current?.close();
+      clearTimeout(pipelineFadeId.current);
+    };
+  }, [connect]);
 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  useEffect(() => () => wsRef.current?.close(), []);
-
-  function handleStart() {
-    setView('chat');
-    connect();
-  }
-
-  function handleDrop(e) {
-    e.preventDefault();
-    setDragOver(false);
-    const f = e.dataTransfer.files[0];
-    if (f?.type === 'application/pdf') setFile(f);
-  }
 
   async function handleSend() {
     const text = input.trim();
@@ -116,11 +132,20 @@ export default function Page() {
     setInput('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-    if (file && studySetId.current) {
+    if (file) {
+      if (!studySetId.current) {
+        setMessages(prev => [...prev, { role: 'ai', text: '⚠️ Still connecting — please try again in a moment.' }]);
+        return;
+      }
       const fd = new FormData();
       fd.append('file', file);
       fd.append('study_set_id', studySetId.current);
-      fetch(`${API}/ingest/pdf`, { method: 'POST', body: fd }).catch(() => {});
+      const res = await fetch(`${API}/ingest/pdf`, { method: 'POST', body: fd }).catch(() => null);
+      if (res && !res.ok) {
+        const { detail } = await res.json().catch(() => ({ detail: 'Upload failed' }));
+        setMessages(prev => [...prev, { role: 'ai', text: `⚠️ ${detail}` }]);
+        return;
+      }
       setFile(null);
     }
 
@@ -140,89 +165,7 @@ export default function Page() {
     e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
   }
 
-  // ── Upload screen ──────────────────────────────────────────────────────────
-
-  if (view === 'upload') {
-    return (
-      <div className="upload-screen">
-        <header className="upload-header">
-          <div className="brand">
-            <HexIcon size={34} />
-            <span className="brand-name">EduHive</span>
-          </div>
-          <div className="status-pill offline">
-            <span className="dot" />
-            <span>Offline</span>
-          </div>
-        </header>
-
-        <main className="upload-main">
-          <div className="upload-hero">
-            <h1 className="hero-title">
-              Upload your materials,<br />
-              <span className="hero-accent">start learning.</span>
-            </h1>
-            <p className="hero-sub">
-              Drop a PDF and EduHive's agents will teach, quiz, and guide you through it.
-            </p>
-          </div>
-
-          <div
-            className={`drop-zone${dragOver ? ' drag-over' : ''}`}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            role="button"
-            tabIndex={0}
-            aria-label="Upload PDF"
-            onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-          >
-            <HexIcon size={68} />
-
-            {file ? (
-              <div className="file-pill">
-                <span>📎 {file.name}</span>
-                <button
-                  className="remove-file"
-                  onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                  aria-label="Remove file"
-                >✕</button>
-              </div>
-            ) : (
-              <>
-                <p className="drop-title">Drop your PDF here</p>
-                <p className="drop-sub">or click to select · optional</p>
-              </>
-            )}
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              hidden
-              onChange={(e) => { const f = e.target.files[0]; if (f) setFile(f); }}
-            />
-          </div>
-
-          <button className="start-btn" onClick={handleStart}>
-            Start Learning <span aria-hidden="true">→</span>
-          </button>
-
-          <div className="agent-chips">
-            {AGENTS.map(a => (
-              <div key={a.key} className="agent-chip">
-                <span>{a.icon}</span>
-                <span>{a.label}</span>
-              </div>
-            ))}
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // ── Chat screen ────────────────────────────────────────────────────────────
+  const showPipeline = Object.keys(pipeline).length > 0;
 
   return (
     <div className="chat-shell">
@@ -247,6 +190,20 @@ export default function Page() {
             <span className="dot" />
             <span>{connected ? 'Connected' : 'Connecting…'}</span>
           </div>
+
+          {session ? (
+            <div className="auth-user">
+              {session.user.image && (
+                <img src={session.user.image} alt="" className="auth-avatar" />
+              )}
+              <span className="auth-name">{session.user.name ?? session.user.email}</span>
+              <button className="auth-btn" onClick={() => signOut()}>Out</button>
+            </div>
+          ) : (
+            <button className="auth-btn auth-btn-primary" onClick={() => signIn('google')}>
+              Sign in with Google
+            </button>
+          )}
         </div>
       </aside>
 
@@ -267,11 +224,33 @@ export default function Page() {
           )}
           {messages.map((m, i) => (
             <div key={i} className={`msg msg-${m.role}`}>
-              <div className="msg-body">{m.text}</div>
+              <div className="msg-body prose">
+                {m.role === 'ai'
+                  ? <ReactMarkdown>{m.text}</ReactMarkdown>
+                  : m.text}
+              </div>
             </div>
           ))}
           <div ref={messagesEnd} />
         </div>
+
+        {showPipeline && (
+          <div className="pipeline-bar" role="status" aria-label="Background processing">
+            {PIPELINE_STAGES.map((s, idx) => {
+              const status = pipeline[s.key];
+              return (
+                <Fragment key={s.key}>
+                  <span className={`pipeline-step${status ? ` ${status}` : ''}`}>
+                    {status === 'done' ? '✓' : status === 'error' ? '✕' : '●'} {s.label}
+                  </span>
+                  {idx < PIPELINE_STAGES.length - 1 && (
+                    <span className="pipeline-sep">→</span>
+                  )}
+                </Fragment>
+              );
+            })}
+          </div>
+        )}
 
         <form
           className="input-area"
