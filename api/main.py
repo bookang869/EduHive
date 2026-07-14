@@ -6,8 +6,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage
 from mangum import Mangum
 
@@ -71,18 +70,22 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 handler = Mangum(app)
 
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:8080").split(",")]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 from .ingestion import router as ingestion_router  # noqa: E402
 app.include_router(ingestion_router)
-
-frontend_dir = Path(__file__).parent.parent / "frontend"
-static_dir = frontend_dir / "static"
-
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 @app.get("/")
 async def root():
-    return FileResponse(frontend_dir / "index.html")
+    return {"service": "EduHive API", "docs": "/docs"}
 
 
 @app.get("/health")

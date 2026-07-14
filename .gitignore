@@ -12,3 +12,15 @@ wheels/
 memory.db
 
 build-lambda-simple.sh
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/package-lock.json
+
+# macOS
+.DS_Store
+
+# LangGraph
+.langgraph_api/
