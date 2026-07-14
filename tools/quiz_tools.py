@@ -1,6 +1,9 @@
-from langchain_core.tools import tool
-from typing import Literal, List
+from typing import Annotated, Literal, List
+
+from langchain_core.messages import ToolMessage
+from langchain_core.tools import InjectedToolCallId, tool
 from langchain.chat_models import init_chat_model
+from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 class Question(BaseModel):
@@ -69,3 +72,18 @@ def generate_quiz(
   quiz = structured_llm.invoke(prompt)
 
   return quiz
+
+
+@tool
+async def record_quiz_attempt(
+    quiz_id: str,
+    score: int,
+    wrong_topics: list[str],
+    tool_call_id: Annotated[str, InjectedToolCallId()],
+) -> Command:
+    """Record the result of a completed quiz session. Call after presenting all questions and tallying the score."""
+    from core.db import insert_quiz_attempt
+    await insert_quiz_attempt(quiz_id, score, wrong_topics)
+    return Command(update={
+        "messages": [ToolMessage(content=f"Quiz attempt recorded. Score: {score}.", tool_call_id=tool_call_id)],
+    })

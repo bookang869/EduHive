@@ -1,17 +1,25 @@
 // --- DOM refs ---
-const statusPill   = document.getElementById("status-pill");
-const statusText   = document.getElementById("status-text");
-const messagesEl   = document.getElementById("messages");
-const sendForm     = document.getElementById("send-form");
-const messageInput = document.getElementById("message");
-const pdfInput     = document.getElementById("pdf-input");
-const attachRow    = document.getElementById("attachment-row");
-const attachPill   = document.getElementById("attachment-pill");
-const removeBtn    = document.getElementById("remove-attachment");
-const agentBar     = document.getElementById("agent-bar");
-const agentLabel   = document.getElementById("agent-label");
-const pipelineBar  = document.getElementById("pipeline-bar");
-const pipelineCheck= document.getElementById("pipeline-check");
+const statusPill      = document.getElementById("status-pill");
+const statusText      = document.getElementById("status-text");
+const messagesEl      = document.getElementById("messages");
+const sendForm        = document.getElementById("send-form");
+const messageInput    = document.getElementById("message");
+const pdfInput        = document.getElementById("pdf-input");
+const attachRow       = document.getElementById("attachment-row");
+const attachPill      = document.getElementById("attachment-pill");
+const removeBtn       = document.getElementById("remove-attachment");
+const agentBar        = document.getElementById("agent-bar");
+const agentLabel      = document.getElementById("agent-label");
+const pipelineBar     = document.getElementById("pipeline-bar");
+const pipelineCheck   = document.getElementById("pipeline-check");
+const materialsPanel  = document.getElementById("materials-panel");
+const materialsToggle = document.getElementById("materials-toggle");
+const materialsBody   = document.getElementById("materials-body");
+const guideBody       = document.getElementById("guide-body");
+const flashcardsBody  = document.getElementById("flashcards-body");
+const fcCount         = document.getElementById("fc-count");
+const quizCount       = document.getElementById("quiz-count");
+const startQuizBtn    = document.getElementById("start-quiz-btn");
 
 const AGENT_LABELS = {
   classification_agent: "Assessing…",
@@ -81,10 +89,66 @@ function updatePipeline(stage, done) {
     el.classList.toggle("stage-active", !done);
   }
   STAGE_DONE[stage] = done;
-  if (done && stage === "weak_topic") {
+  if (done && stage === "study_plan") {
     pipelineCheck.style.display = "inline";
+    if (studySetId) loadStudyMaterials(studySetId);
   }
 }
+
+// --- Study materials ---
+async function loadStudyMaterials(sid) {
+  try {
+    const res = await fetch(`/study-materials/${sid}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Study guide
+    if (data.guide) {
+      guideBody.textContent = data.guide;  // plain text; safe, no XSS
+      document.getElementById("guide-section").open = true;
+    }
+
+    // Flashcards
+    const cards = data.flashcards || [];
+    fcCount.textContent = cards.length;
+    flashcardsBody.innerHTML = "";
+    cards.forEach((card) => {
+      const el = document.createElement("div");
+      el.className = "flashcard";
+      el.innerHTML = `<div class="fc-front">${escHtml(card.front)}</div><div class="fc-back" style="display:none">${escHtml(card.back)}</div>`;
+      el.addEventListener("click", () => {
+        const back = el.querySelector(".fc-back");
+        back.style.display = back.style.display === "none" ? "block" : "none";
+      });
+      flashcardsBody.appendChild(el);
+    });
+
+    // Quiz
+    const questions = data.questions || [];
+    quizCount.textContent = questions.length;
+    startQuizBtn.onclick = () => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        addMessage("user", "Let's do the prebuilt quiz.");
+        socket.send(JSON.stringify({ message: "Let's do the prebuilt quiz on my study materials." }));
+      }
+    };
+
+    materialsPanel.style.display = "block";
+  } catch (e) {
+    console.error("Failed to load study materials", e);
+  }
+}
+
+function escHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// materials panel collapse toggle
+materialsToggle.addEventListener("click", () => {
+  const collapsed = materialsBody.style.display === "none";
+  materialsBody.style.display = collapsed ? "block" : "none";
+  materialsToggle.textContent = collapsed ? "▾" : "▸";
+});
 
 // --- WebSocket ---
 function connect() {

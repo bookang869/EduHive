@@ -59,6 +59,30 @@
           </div>
         </div>
 
+        <!-- Study materials panel (shown after study_plan stage completes) -->
+        <div id="materials-panel" style="display:none">
+          <div class="materials-header">
+            <span>Study Materials</span>
+            <button type="button" class="materials-toggle" id="materials-toggle" aria-label="Toggle materials">▾</button>
+          </div>
+          <div id="materials-body" class="materials-body">
+            <details class="material-section" id="guide-section">
+              <summary>Study Guide</summary>
+              <div id="guide-body" class="guide-body"></div>
+            </details>
+            <details class="material-section" id="flashcards-section">
+              <summary>Flashcards <span class="badge" id="fc-count">0</span></summary>
+              <div id="flashcards-body" class="flashcards-body"></div>
+            </details>
+            <details class="material-section" id="quiz-section">
+              <summary>Quiz <span class="badge" id="quiz-count">0</span> questions</summary>
+              <div class="quiz-actions">
+                <button type="button" class="start-quiz-btn" id="start-quiz-btn">Start Quiz</button>
+              </div>
+            </details>
+          </div>
+        </div>
+
         <!-- Input area -->
         <form class="input-area" id="send-form">
           <!-- PDF attachment pill -->

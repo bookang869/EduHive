@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from core.ingestion import MAX_PAGES, run_analyze, run_pdf_ingestion, run_web_ingestion
+from core.ingestion import MAX_PAGES, estimate_hours, run_analyze, run_pdf_ingestion, run_web_ingestion
 
 router = APIRouter()
 
@@ -53,3 +53,36 @@ class AnalyzeRequest(BaseModel):
 async def analyze(request: AnalyzeRequest, background_tasks: BackgroundTasks):
     background_tasks.add_task(run_analyze, request.study_set_id)
     return {"status": "analysis started"}
+
+
+@router.get("/study-materials/{study_set_id}")
+async def study_materials(study_set_id: str):
+    from core.db import get_study_materials
+    return await get_study_materials(study_set_id)
+
+
+class EstimateRequest(BaseModel):
+    study_set_id: str
+    deadline: str  # YYYY-MM-DD
+
+
+@router.post("/estimate")
+async def estimate(request: EstimateRequest):
+    from core.db import get_topic_scores
+    scores = await get_topic_scores(request.study_set_id)
+    if not scores:
+        raise HTTPException(status_code=404, detail="No topic scores found for this study set.")
+    return estimate_hours(scores, request.deadline)
+
+
+class QuizAttemptRequest(BaseModel):
+    quiz_id: str
+    score: int
+    wrong_topics: list[str] = []
+
+
+@router.post("/quiz-attempts")
+async def record_attempt(request: QuizAttemptRequest):
+    from core.db import insert_quiz_attempt
+    await insert_quiz_attempt(request.quiz_id, request.score, request.wrong_topics)
+    return {"status": "recorded"}

@@ -54,6 +54,36 @@ create table if not exists topic_scores (
     reason       text
 );
 
+create table if not exists study_guides (
+    id           uuid primary key default gen_random_uuid(),
+    study_set_id uuid not null references study_sets(id) on delete cascade,
+    content_md   text not null,
+    created_at   timestamptz default now()
+);
+
+create table if not exists flashcards (
+    id           uuid primary key default gen_random_uuid(),
+    study_set_id uuid not null references study_sets(id) on delete cascade,
+    front        text not null,
+    back         text not null,
+    topic        text not null
+);
+
+create table if not exists quizzes (
+    id              uuid primary key default gen_random_uuid(),
+    study_set_id    uuid not null references study_sets(id) on delete cascade,
+    questions_json  jsonb not null,
+    created_at      timestamptz default now()
+);
+
+create table if not exists quiz_attempts (
+    id           uuid primary key default gen_random_uuid(),
+    quiz_id      uuid not null references quizzes(id) on delete cascade,
+    score        int not null,
+    wrong_topics jsonb,
+    taken_at     timestamptz default now()
+);
+
 -- ivfflat indexes for cosine similarity search (lists=100 suits up to ~1M rows)
 create index if not exists file_chunks_embedding_idx
     on file_chunks using ivfflat (embedding vector_cosine_ops) with (lists = 100);

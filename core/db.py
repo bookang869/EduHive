@@ -84,6 +84,134 @@ async def insert_topic_scores(study_set_id: str, scores: list[dict]) -> None:
         await conn.commit()
 
 
+async def get_topic_scores(study_set_id: str) -> list[dict]:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT topic, score, reason FROM topic_scores WHERE study_set_id = %s ORDER BY score DESC",
+                (study_set_id,),
+            )
+            rows = await cur.fetchall()
+    return [{"topic": r[0], "score": r[1], "reason": r[2]} for r in rows]
+
+
+async def delete_topic_scores(study_set_id: str) -> None:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("DELETE FROM topic_scores WHERE study_set_id = %s", (study_set_id,))
+        await conn.commit()
+
+
+async def delete_study_plan_data(study_set_id: str) -> None:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("DELETE FROM study_guides WHERE study_set_id = %s", (study_set_id,))
+            await cur.execute("DELETE FROM flashcards WHERE study_set_id = %s", (study_set_id,))
+            await cur.execute(
+                "DELETE FROM quizzes WHERE study_set_id = %s", (study_set_id,)
+            )
+        await conn.commit()
+
+
+async def insert_study_guide(study_set_id: str, content_md: str) -> str:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "INSERT INTO study_guides (study_set_id, content_md) VALUES (%s, %s) RETURNING id",
+                (study_set_id, content_md),
+            )
+            row = await cur.fetchone()
+        await conn.commit()
+    return str(row[0])
+
+
+async def insert_flashcards(study_set_id: str, cards: list[dict]) -> None:
+    if not cards:
+        return
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            for card in cards:
+                await cur.execute(
+                    "INSERT INTO flashcards (study_set_id, front, back, topic) VALUES (%s, %s, %s, %s)",
+                    (study_set_id, card["front"], card["back"], card["topic"]),
+                )
+        await conn.commit()
+
+
+async def insert_quiz(study_set_id: str, questions: list) -> str:
+    import json as _json
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "INSERT INTO quizzes (study_set_id, questions_json) VALUES (%s, %s::jsonb) RETURNING id",
+                (study_set_id, _json.dumps(questions)),
+            )
+            row = await cur.fetchone()
+        await conn.commit()
+    return str(row[0])
+
+
+async def get_study_guide(study_set_id: str) -> str | None:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT content_md FROM study_guides WHERE study_set_id = %s LIMIT 1",
+                (study_set_id,),
+            )
+            row = await cur.fetchone()
+    return row[0] if row else None
+
+
+async def get_quiz(study_set_id: str) -> dict | None:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT id, questions_json FROM quizzes WHERE study_set_id = %s LIMIT 1",
+                (study_set_id,),
+            )
+            row = await cur.fetchone()
+    if not row:
+        return None
+    return {"id": str(row[0]), "questions": row[1]}
+
+
+async def get_study_materials(study_set_id: str) -> dict:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT content_md FROM study_guides WHERE study_set_id = %s LIMIT 1",
+                (study_set_id,),
+            )
+            guide_row = await cur.fetchone()
+            await cur.execute(
+                "SELECT front, back, topic FROM flashcards WHERE study_set_id = %s",
+                (study_set_id,),
+            )
+            fc_rows = await cur.fetchall()
+            await cur.execute(
+                "SELECT id, questions_json FROM quizzes WHERE study_set_id = %s LIMIT 1",
+                (study_set_id,),
+            )
+            quiz_row = await cur.fetchone()
+    return {
+        "guide": guide_row[0] if guide_row else None,
+        "flashcards": [{"front": r[0], "back": r[1], "topic": r[2]} for r in fc_rows],
+        "quiz_id": str(quiz_row[0]) if quiz_row else None,
+        "questions": quiz_row[1] if quiz_row else [],
+    }
+
+
+async def insert_quiz_attempt(quiz_id: str, score: int, wrong_topics: list[str]) -> None:
+    import json as _json
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "INSERT INTO quiz_attempts (quiz_id, score, wrong_topics) VALUES (%s, %s, %s::jsonb)",
+                (quiz_id, score, _json.dumps(wrong_topics)),
+            )
+        await conn.commit()
+
+
 async def get_all_chunks(study_set_id: str) -> list[str]:
     """Retrieve all text chunks for a study_set (used by weak-topic analysis)."""
     async with _pool.connection() as conn:
