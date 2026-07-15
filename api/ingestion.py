@@ -13,6 +13,7 @@ async def ingest_pdf(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    study_set_id: str | None = Form(None),
 ):
     fname = (file.filename or "upload.pdf").lower()
     if not fname.endswith(".pdf"):
@@ -33,7 +34,15 @@ async def ingest_pdf(
     from core.db import create_study_set, get_user_id_by_sub
     google_sub = getattr(request.state, "user_sub", None)
     user_id = await get_user_id_by_sub(google_sub) if google_sub else None
-    study_set_id = await create_study_set(user_id)
+
+    if study_set_id:
+        from core.db import get_study_set_owner_sub
+        owner_sub = await get_study_set_owner_sub(study_set_id)
+        if owner_sub and owner_sub != google_sub:
+            raise HTTPException(status_code=403, detail="Forbidden")
+    else:
+        study_set_id = await create_study_set(user_id)
+
     background_tasks.add_task(run_pdf_ingestion, study_set_id, file.filename or "upload.pdf", content)
     return {"status": "ingestion started", "study_set_id": study_set_id}
 
