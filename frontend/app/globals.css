@@ -3,8 +3,8 @@
   --panel: #111111;
   --panel-2: #1a1a1a;
   --muted: #6b7280;
-  --accent: #818cf8;
-  --accent-2: #6366f1;
+  --accent: #f59e0b;
+  --accent-2: #d97706;
   --border: #222222;
   --text: #f9fafb;
 }
@@ -17,8 +17,8 @@
 
 body {
   background:
-    radial-gradient(ellipse at 20% 0%, rgba(99,102,241,0.14) 0%, transparent 45%),
-    radial-gradient(ellipse at 85% 5%, rgba(129,140,248,0.07) 0%, transparent 40%),
+    radial-gradient(ellipse at 20% 0%, rgba(217,119,6,0.14) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 5%, rgba(245,158,11,0.07) 0%, transparent 40%),
     var(--bg);
   color: var(--text);
   min-height: 100svh;
@@ -104,6 +104,21 @@ body {
   color: var(--muted);
 }
 
+.nav-signout {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--muted);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 120ms, border-color 120ms;
+  flex-shrink: 0;
+}
+
+.nav-signout:hover { color: var(--text); border-color: #444; }
+
 .nav-dot {
   width: 7px;
   height: 7px;
@@ -151,7 +166,7 @@ body {
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 8px rgba(129,140,248,0.6);
+  box-shadow: 0 0 8px rgba(245,158,11,0.6);
   flex-shrink: 0;
 }
 
@@ -193,7 +208,7 @@ body {
 
 .upload-card.drag-over {
   border-color: var(--accent);
-  background: rgba(129,140,248,0.05);
+  background: rgba(245,158,11,0.05);
 }
 
 .upload-card.locked {
@@ -251,7 +266,7 @@ body {
   text-decoration: none;
 }
 
-.btn-primary:hover:not(:disabled) { background: #4f46e5; transform: translateY(-1px); }
+.btn-primary:hover:not(:disabled) { background: #b45309; transform: translateY(-1px); }
 .btn-primary:active { transform: translateY(0); }
 .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
 
@@ -270,6 +285,24 @@ body {
 }
 
 .btn-secondary:hover { background: #222222; }
+
+.btn-alt {
+  display: inline-block;
+  background: #059669;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 150ms, transform 100ms;
+}
+
+.btn-alt:hover:not(:disabled) { background: #047857; transform: translateY(-1px); }
+.btn-alt:active { transform: translateY(0); }
+.btn-alt:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .text-link {
   background: none;
@@ -508,9 +541,9 @@ body {
 }
 
 .agent-item.active {
-  background: rgba(129,140,248,0.10);
+  background: rgba(245,158,11,0.10);
   color: var(--accent);
-  border-color: rgba(129,140,248,0.18);
+  border-color: rgba(245,158,11,0.18);
 }
 
 .active-dot {
@@ -519,7 +552,7 @@ body {
   border-radius: 50%;
   background: var(--accent);
   margin-left: auto;
-  box-shadow: 0 0 8px rgba(129,140,248,0.55);
+  box-shadow: 0 0 8px rgba(245,158,11,0.55);
   flex-shrink: 0;
 }
 
@@ -531,8 +564,8 @@ body {
 }
 
 .sidebar-btn {
-  background: rgba(129,140,248,0.08);
-  border: 1px solid rgba(129,140,248,0.2);
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
   border-radius: 8px;
   color: var(--accent);
   padding: 8px 10px;
@@ -544,7 +577,7 @@ body {
   text-align: center;
 }
 
-.sidebar-btn:hover { background: rgba(129,140,248,0.15); }
+.sidebar-btn:hover { background: rgba(245,158,11,0.15); }
 
 .sidebar-btn-ghost {
   background: none;
@@ -602,7 +635,7 @@ body {
   font-size: 11px;
   font-weight: 700;
   color: var(--accent);
-  background: rgba(129,140,248,0.05);
+  background: rgba(245,158,11,0.05);
   border-bottom: 1px solid var(--border);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -632,8 +665,8 @@ body {
 .welcome-icon {
   width: 56px;
   height: 56px;
-  background: linear-gradient(135deg, rgba(129,140,248,0.2), rgba(99,102,241,0.3));
-  border: 1px solid rgba(129,140,248,0.25);
+  background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(217,119,6,0.3));
+  border: 1px solid rgba(245,158,11,0.25);
   border-radius: 16px;
   display: flex;
   align-items: center;
@@ -666,8 +699,8 @@ body {
 }
 
 .msg-user .msg-body {
-  background: linear-gradient(135deg, rgba(129,140,248,0.18), rgba(99,102,241,0.24));
-  border: 1px solid rgba(129,140,248,0.28);
+  background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(217,119,6,0.24));
+  border: 1px solid rgba(245,158,11,0.28);
   border-bottom-right-radius: 4px;
   white-space: pre-wrap;
 }
@@ -687,10 +720,10 @@ body {
 .prose h1              { font-size: 1.25em; font-weight: 700; letter-spacing: -0.02em; margin: 0.8em 0 0.4em; }
 .prose h2              { font-size: 1.1em;  font-weight: 700; letter-spacing: -0.02em; margin: 0.75em 0 0.35em; }
 .prose h3              { font-size: 1em;    font-weight: 600; margin: 0.6em 0 0.3em; }
-.prose code            { background: rgba(129,140,248,0.12); color: var(--accent); padding: 1px 6px; border-radius: 4px; font-size: 0.875em; font-family: 'Menlo', 'Monaco', monospace; }
+.prose code            { background: rgba(245,158,11,0.12); color: var(--accent); padding: 1px 6px; border-radius: 4px; font-size: 0.875em; font-family: 'Menlo', 'Monaco', monospace; }
 .prose pre             { background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; overflow-x: auto; margin-bottom: 0.7em; }
 .prose pre code        { background: none; color: var(--text); padding: 0; font-size: 0.85em; }
-.prose blockquote      { border-left: 3px solid rgba(129,140,248,0.4); padding-left: 12px; color: var(--muted); margin: 0.5em 0; }
+.prose blockquote      { border-left: 3px solid rgba(245,158,11,0.4); padding-left: 12px; color: var(--muted); margin: 0.5em 0; }
 .prose strong          { color: var(--text); font-weight: 600; }
 .prose a               { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
@@ -742,7 +775,7 @@ body {
   transition: border-color 150ms;
 }
 
-.input-row:focus-within { border-color: rgba(129,140,248,0.4); }
+.input-row:focus-within { border-color: rgba(245,158,11,0.4); }
 
 .input-row textarea {
   flex: 1;
@@ -777,7 +810,7 @@ body {
   font-family: inherit;
 }
 
-.send-btn:hover { background: #4f46e5; transform: translateY(-1px); }
+.send-btn:hover { background: #b45309; transform: translateY(-1px); }
 .send-btn:active { transform: translateY(0); }
 
 /* ─── Mobile ────────────────────────────────────────── */

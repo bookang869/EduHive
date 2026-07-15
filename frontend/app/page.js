@@ -33,7 +33,7 @@ const STEPS = [
   { n: '04', label: 'Summary' },
 ];
 
-function TopNav({ activeStep, connected, showStatus }) {
+function TopNav({ activeStep, connected, showStatus, onSignOut }) {
   return (
     <header className="top-nav">
       <div className="nav-brand">
@@ -52,7 +52,10 @@ function TopNav({ activeStep, connected, showStatus }) {
       </nav>
       <div className={`nav-status${showStatus ? (connected ? ' online' : ' offline') : ''}`}>
         {showStatus && <span className="nav-dot" />}
-        <span>{showStatus ? (connected ? 'Connected' : 'Connecting…') : ' '}</span>
+        {showStatus && <span>{connected ? 'Connected' : 'Connecting…'}</span>}
+        {onSignOut && (
+          <button className="nav-signout" onClick={onSignOut}>Sign out</button>
+        )}
       </div>
     </header>
   );
@@ -265,7 +268,7 @@ export default function Page() {
   if (phase === 'upload') {
     return (
       <>
-        <TopNav activeStep={0} connected={false} showStatus={false} />
+        <TopNav activeStep={0} connected={false} showStatus={false} onSignOut={() => signOut()} />
         <div className="page">
           <div className="landing">
             <div className="landing-badge">
@@ -274,8 +277,8 @@ export default function Page() {
             </div>
 
             <h1 className="landing-hero">
-              Your study materials become<br />
-              your <span className="hero-accent">learning engine</span>.
+              Turn any PDF into your<br />
+              personal <span className="hero-accent">AI tutor</span>.
             </h1>
 
             <p className="landing-sub">
@@ -299,6 +302,13 @@ export default function Page() {
                   <input type="file" accept=".pdf" multiple hidden onChange={e => addFiles(e.target.files)} />
                   <span className="btn-primary">Browse files</span>
                 </label>
+                <button
+                  className="btn-alt"
+                  disabled={!stagedFiles.length}
+                  onClick={startLearning}
+                >
+                  Learn →
+                </button>
               </div>
             </div>
 
@@ -315,21 +325,11 @@ export default function Page() {
 
             {ingestError && <p className="error-msg">{ingestError}</p>}
 
-            <button
-              className="btn-primary"
-              style={{ opacity: stagedFiles.length ? 1 : 0.35 }}
-              disabled={!stagedFiles.length}
-              onClick={startLearning}
-            >
-              {studySetId.current ? 'Add to session →' : 'Start Learning →'}
-            </button>
-
-            <button
-              className="text-link"
-              onClick={() => studySetId.current ? enterChat(studySetId.current) : signOut()}
-            >
-              {studySetId.current ? '← Back to chat' : 'Sign out'}
-            </button>
+            {studySetId.current && (
+              <button className="text-link" onClick={() => enterChat(studySetId.current)}>
+                ← Back to chat
+              </button>
+            )}
 
             <div className="landing-stats">
               <div className="stat">
