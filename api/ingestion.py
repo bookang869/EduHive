@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from core.ingestion import MAX_PAGES, estimate_hours, run_analyze, run_pdf_ingestion, run_web_ingestion
+from core.ingestion import MAX_PAGES, estimate_hours, run_analyze, run_pdf_ingestion
 
 router = APIRouter()
 
@@ -33,16 +33,6 @@ async def ingest_pdf(
     background_tasks.add_task(run_pdf_ingestion, study_set_id, file.filename or "upload.pdf", content)
     return {"status": "ingestion started", "study_set_id": study_set_id}
 
-
-class WebIngestRequest(BaseModel):
-    study_set_id: str
-    query: str
-
-
-@router.post("/ingest/web")
-async def ingest_web(request: WebIngestRequest, background_tasks: BackgroundTasks):
-    background_tasks.add_task(run_web_ingestion, request.study_set_id, request.query)
-    return {"status": "ingestion started"}
 
 
 class AnalyzeRequest(BaseModel):

@@ -2,8 +2,6 @@
 from __future__ import annotations
 import io
 import json
-import os
-import re
 from datetime import date
 
 CHUNK_SIZE = 6000   # ~1500 tokens
@@ -51,28 +49,6 @@ async def run_pdf_ingestion(study_set_id: str, filename: str, content: bytes) ->
     except Exception as e:
         await push(study_set_id, {"type": "task_progress", "stage": "ingestion", "done": True, "error": str(e)})
 
-
-async def run_web_ingestion(study_set_id: str, query: str) -> None:
-    import asyncio
-    from firecrawl import FirecrawlApp, ScrapeOptions
-    from core.db import insert_web_chunks
-    from core.progress import push
-
-    try:
-        await push(study_set_id, {"type": "task_progress", "stage": "ingestion", "done": False})
-        app = FirecrawlApp(api_key=os.getenv("FIRECRAWL_API_KEY"))
-        response = app.search(query, limit=3, scrape_options=ScrapeOptions(formats=["markdown"]))
-        if not response.success:
-            return
-        chunks: list[str] = []
-        for result in response.data[:3]:
-            md = re.sub(r"\[[^\]]+\]\([^)]+\)|https?://\S+", "", result.get("markdown", ""))
-            chunks.extend(chunk_text(md[:10000]))
-        await insert_web_chunks(study_set_id, query, chunks)
-        await push(study_set_id, {"type": "task_progress", "stage": "ingestion", "done": True})
-        asyncio.create_task(run_analyze(study_set_id))
-    except Exception as e:
-        await push(study_set_id, {"type": "task_progress", "stage": "ingestion", "done": True, "error": str(e)})
 
 
 async def run_analyze(study_set_id: str) -> None:

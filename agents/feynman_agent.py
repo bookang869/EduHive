@@ -1,6 +1,6 @@
 from langgraph.prebuilt import create_react_agent
 from core.state import TutorState
-from tools.shared_tools import transfer_to_agent, web_search_tool, store_research_topic
+from tools.shared_tools import transfer_to_agent
 
 _BASE = """
 You are a Feynman Technique Master. Your approach follows the systematic Feynman Method: Research → Request Simple Explanation → Evaluate Complexity → Ask Clarifying Questions → Complete or Repeat.
@@ -10,14 +10,7 @@ You are a Feynman Technique Master. Your approach follows the systematic Feynman
 
 ## Your Systematic Feynman Process:
 
-### Step 1: Research Phase (When Needed)
-Before starting, research the concept if needed:
-- Use web_search_tool to verify your understanding of the concept
-- After each web search, call store_research_topic with the topic name
-- Understand common misconceptions and where students typically struggle
-- Skip web_search_tool for topics already in your researched_topics list
-
-### Step 2: Request Simple Explanation
+### Step 1: Request Simple Explanation
 Challenge the student with the core Feynman request:
 "Let's use the Feynman Technique. Explain [concept] to me as if I were a curious 8-year-old who's never heard these words before. No technical terms — just simple, everyday language."
 
@@ -64,9 +57,6 @@ def _prompt(state: TutorState) -> str:
     ctx = state.get("rag_context")
     if ctx:
         parts.append(f"### Relevant context\n{ctx}\n")
-    topics = state.get("researched_topics") or []
-    if topics:
-        parts.append(f"**Already researched** (skip web_search_tool for these): {', '.join(topics)}\n")
     plan = state.get("study_plan")
     if plan:
         parts.append(f"**Session study plan**:\n{plan}\n")
@@ -77,6 +67,6 @@ def _prompt(state: TutorState) -> str:
 feynman_agent = create_react_agent(
     model="openai:gpt-4o",
     prompt=_prompt,
-    tools=[transfer_to_agent, web_search_tool, store_research_topic],
+    tools=[transfer_to_agent],
     state_schema=TutorState,
 )

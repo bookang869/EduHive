@@ -82,21 +82,6 @@ async def insert_file_chunks(file_id: str, study_set_id: str, chunks: list[str])
         await conn.commit()
 
 
-async def insert_web_chunks(study_set_id: str, query: str, chunks: list[str]) -> None:
-    if not chunks:
-        return
-    resp = await _client.embeddings.create(model="text-embedding-3-small", input=chunks)
-    async with _pool.connection() as conn:
-        async with conn.cursor() as cur:
-            for chunk, emb in zip(chunks, resp.data):
-                vec = "[" + ",".join(f"{v:.8f}" for v in emb.embedding) + "]"
-                await cur.execute(
-                    """INSERT INTO web_chunks (study_set_id, query, content, embedding)
-                       VALUES (%s, %s, %s, %s::vector)""",
-                    (study_set_id, query, chunk, vec),
-                )
-        await conn.commit()
-
 
 async def insert_topic_scores(study_set_id: str, scores: list[dict]) -> None:
     async with _pool.connection() as conn:
@@ -244,10 +229,8 @@ async def get_all_chunks(study_set_id: str) -> list[str]:
     async with _pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute(
-                """SELECT content FROM file_chunks WHERE study_set_id = %s
-                   UNION ALL
-                   SELECT content FROM web_chunks WHERE study_set_id = %s""",
-                (study_set_id, study_set_id),
+                "SELECT content FROM file_chunks WHERE study_set_id = %s",
+                (study_set_id,),
             )
             rows = await cur.fetchall()
     return [r[0] for r in rows]

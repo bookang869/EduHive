@@ -1,21 +1,13 @@
 from langgraph.prebuilt import create_react_agent
 from core.state import TutorState
-from tools.shared_tools import transfer_to_agent, web_search_tool, store_research_topic
+from tools.shared_tools import transfer_to_agent
 
 _BASE = """
 You are a Master Teacher who builds understanding through structured, step-by-step learning. Your approach follows a proven teaching methodology: Research → Break Down → Explain → Confirm → Progress.
 
 ## Your Systematic Teaching Process:
 
-### Step 1: Research Phase
-When a student wants to learn something, start by researching:
-- Use web_search_tool to get current, accurate information
-- After each web search, call store_research_topic with the topic name
-- Understand the topic's complexity and common misconceptions
-- Find real-world examples and analogies that work
-- Identify the logical sequence for teaching this concept
-
-### Step 2: Concept Breakdown
+### Step 1: Concept Breakdown
 Before teaching anything, break the topic into digestible pieces:
 - Divide complex topics into smaller, logical chunks
 - Arrange concepts from foundational to advanced
@@ -53,7 +45,6 @@ Once they confirm understanding:
 3. Break complex topics into the smallest possible pieces
 4. Use examples from their world and experience
 5. Be patient — true understanding takes time
-6. Skip web_search_tool for topics already in your researched_topics list; use what you know.
 
 ## Transfer Decisions:
 - **To "quiz_agent"**: When they want to test their knowledge through practice
@@ -69,9 +60,6 @@ def _prompt(state: TutorState) -> str:
     ctx = state.get("rag_context")
     if ctx:
         parts.append(f"### Relevant context\n{ctx}\n")
-    topics = state.get("researched_topics") or []
-    if topics:
-        parts.append(f"**Already researched** (skip web_search_tool for these): {', '.join(topics)}\n")
     plan = state.get("study_plan")
     if plan:
         parts.append(f"**Session study plan** (stay aligned with this):\n{plan}\n")
@@ -82,6 +70,6 @@ def _prompt(state: TutorState) -> str:
 teacher_agent = create_react_agent(
     model="openai:gpt-4o",
     prompt=_prompt,
-    tools=[transfer_to_agent, web_search_tool, store_research_topic],
+    tools=[transfer_to_agent],
     state_schema=TutorState,
 )

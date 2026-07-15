@@ -3,7 +3,7 @@ import core.db as _db
 
 
 async def retrieve_context(query: str, study_set_id: str, k: int = 5) -> list[str]:
-    """Return up to k text chunks from file_chunks + web_chunks ordered by cosine similarity."""
+    """Return up to k text chunks from file_chunks ordered by cosine similarity."""
     if _db._pool is None or not query.strip():
         return []
 
@@ -11,17 +11,14 @@ async def retrieve_context(query: str, study_set_id: str, k: int = 5) -> list[st
     vec_str = "[" + ",".join(f"{v:.8f}" for v in resp.data[0].embedding) + "]"
 
     sql = """
-        (SELECT content, embedding <=> %s::vector AS dist
-         FROM file_chunks WHERE study_set_id = %s ORDER BY dist LIMIT %s)
-        UNION ALL
-        (SELECT content, embedding <=> %s::vector AS dist
-         FROM web_chunks WHERE study_set_id = %s ORDER BY dist LIMIT %s)
-        ORDER BY dist LIMIT %s
+        SELECT content FROM file_chunks
+        WHERE study_set_id = %s
+        ORDER BY embedding <=> %s::vector LIMIT %s
     """
 
     async with _db._pool.connection() as conn:
         async with conn.cursor() as cur:
-            await cur.execute(sql, (vec_str, study_set_id, k, vec_str, study_set_id, k, k))
+            await cur.execute(sql, (study_set_id, vec_str, k))
             rows = await cur.fetchall()
 
     return [row[0] for row in rows]
