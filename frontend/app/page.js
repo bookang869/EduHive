@@ -33,26 +33,69 @@ const STEPS = [
   { n: '04', label: 'Summary' },
 ];
 
-function TopNav({ activeStep, connected, showStatus, onSignOut, onLogoClick }) {
+const AGENT_CARDS = [
+  { category: 'STEP-BY-STEP',  emoji: '🧑‍🏫', title: 'Teacher',    desc: "Breaks concepts into clear explanations tailored to how you think. Your go-to when you're learning something new or need it explained differently." },
+  { category: 'ACTIVE RECALL', emoji: '🔬',    title: 'Feynman',    desc: "Asks you to explain things back in your own words. Pinpoints exactly where your understanding breaks down and guides you to fill the gap." },
+  { category: 'PRACTICE',      emoji: '📋',    title: 'Quiz',       desc: "Generates targeted questions from your materials. Tracks what you've mastered and surfaces what still needs work — with every attempt scored." },
+  { category: 'SMART ROUTING', emoji: '🎯',    title: 'Classifier', desc: "Reads your intent and routes each message to the right expert automatically. You just ask — it figures out who should answer." },
+];
+
+const PROBLEMS = [
+  { icon: '📖', title: 'You read, but nothing sticks',        desc: 'Passive reading creates the illusion of learning. Without active recall, most information fades within 24 hours.' },
+  { icon: '❓', title: "You don't know what you don't know",  desc: "Textbooks can't reveal which topics you've actually mastered versus which ones you've only skimmed the surface of." },
+  { icon: '🔁', title: 'No feedback loop',                    desc: 'Studying without being tested is guessing in the dark. You need something that pushes back and reveals your real gaps.' },
+  { icon: '⏳', title: 'Every session starts from zero',       desc: 'Notes get lost, highlights fade, and you re-read the same chapter instead of building on what you already know.' },
+];
+
+const HOW_STEPS = [
+  { num: '01', title: 'Upload your PDFs',         desc: 'Drop in any study material — textbooks, lecture slides, research papers, notes. Multi-file upload supported.' },
+  { num: '02', title: 'AI analyzes your content', desc: 'EduHive chunks, indexes, and maps key concepts. Weak topics are flagged before you even ask your first question.' },
+  { num: '03', title: 'Learn with your team',     desc: 'Ask questions, get tailored explanations, take quizzes, and validate your understanding through conversation.' },
+  { num: '04', title: 'Reach mastery',            desc: 'Feynman-style challenges reveal exactly what you understand — and what you only think you do. Fill every gap.' },
+];
+
+const FEATURES = [
+  { icon: '💬', title: 'Real-time streaming',    desc: 'Responses stream token by token for a natural, conversational feel.' },
+  { icon: '📄', title: 'PDF ingestion',          desc: 'Multi-file upload. Any length. Chunk-level retrieval for precise, grounded answers.' },
+  { icon: '🗺️', title: 'Topic mapping',          desc: 'Automatic identification of key concepts and likely weak areas from your materials.' },
+  { icon: '📖', title: 'Study guide',            desc: 'A generated overview of your content with key takeaways, ready to read or share.' },
+  { icon: '🃏', title: 'Flashcards',             desc: 'Auto-generated cards from your PDFs — ready for spaced repetition practice.' },
+  { icon: '✏️', title: 'Quizzes & scoring',      desc: 'Questions generated from your materials, scored and tracked across every session.' },
+  { icon: '🧠', title: 'Feynman validation',     desc: 'Challenges you to explain concepts back in your own words to confirm real understanding.' },
+  { icon: '💾', title: 'Session memory',         desc: 'Pick up exactly where you left off. Your study set and progress persist between sessions.' },
+];
+
+function TopNav({ activeStep, isLanding, connected, showStatus, onSignOut, onLogoClick }) {
   return (
     <header className="top-nav">
       <div className="nav-brand" onClick={onLogoClick} style={{ cursor: onLogoClick ? 'pointer' : 'default' }}>
         <div className="nav-logo">E</div>
         <span className="nav-brand-name">EduHive</span>
       </div>
-      <nav className="nav-steps" aria-label="Progress">
-        {STEPS.map((s, i) => (
-          <span
-            key={s.n}
-            className={`nav-step${i === activeStep ? ' active' : ''}${i < activeStep ? ' done' : ''}`}
-          >
-            {s.n}·{s.label}
-          </span>
-        ))}
-      </nav>
+      {isLanding ? (
+        <nav className="nav-anchors" aria-label="Sections">
+          <a href="#agents"       className="nav-anchor">Agents</a>
+          <a href="#how-it-works" className="nav-anchor">How it works</a>
+          <a href="#features"     className="nav-anchor">Features</a>
+        </nav>
+      ) : (
+        <nav className="nav-steps" aria-label="Progress">
+          {STEPS.map((s, i) => (
+            <span
+              key={s.n}
+              className={`nav-step${i === activeStep ? ' active' : ''}${i < activeStep ? ' done' : ''}`}
+            >
+              {s.n}·{s.label}
+            </span>
+          ))}
+        </nav>
+      )}
       <div className={`nav-status${showStatus ? (connected ? ' online' : ' offline') : ''}`}>
-        {showStatus && <span className="nav-dot" />}
-        {showStatus && <span>{connected ? 'Connected' : 'Connecting…'}</span>}
+        {isLanding && (
+          <a href="#intro" className="btn-cta nav-cta">Start free →</a>
+        )}
+        {!isLanding && showStatus && <span className="nav-dot" />}
+        {!isLanding && showStatus && <span>{connected ? 'Connected' : 'Connecting…'}</span>}
         {onSignOut && (
           <button className="nav-signout" onClick={onSignOut}>Sign out</button>
         )}
@@ -295,13 +338,40 @@ export default function Page() {
     );
   }
 
-  // ── Upload ────────────────────────────────────────────────────────────────
+  // ── Upload (landing page) ─────────────────────────────────────────────────
 
   if (phase === 'upload') {
+    const dragProps = {
+      onDragOver:  e => { e.preventDefault(); setIsDragOver(true); },
+      onDragLeave: () => setIsDragOver(false),
+      onDrop:      e => { e.preventDefault(); setIsDragOver(false); addFiles(e.dataTransfer.files); },
+    };
+
+    const UploadCard = ({ style }) => (
+      <div className={`upload-card${isDragOver ? ' drag-over' : ''}`} {...dragProps} style={style}>
+        <div className="upload-icon-wrap">📄</div>
+        <p className="upload-title">
+          {studySetId.current ? 'Add more PDFs to your session' : 'Drop your PDF here'}
+        </p>
+        <p className="upload-hint">or click to select · PDF only</p>
+        <div className="upload-btns">
+          <label style={{ cursor: 'pointer' }}>
+            <input type="file" accept=".pdf" multiple hidden onChange={e => addFiles(e.target.files)} />
+            <span className="btn-primary">Browse files</span>
+          </label>
+          <button className="btn-alt" disabled={!stagedFiles.length} onClick={startLearning}>
+            Learn →
+          </button>
+        </div>
+      </div>
+    );
+
     return (
       <>
-        <TopNav activeStep={0} connected={false} showStatus={false} onSignOut={() => signOut()} />
-        <div className="page">
+        <TopNav isLanding={true} connected={false} showStatus={false} onSignOut={() => signOut()} />
+
+        {/* ─── Hero ──────────────────────────────────────────────────────── */}
+        <div className="page" id="intro">
           <div className="landing">
             <div className="landing-badge">
               <span className="badge-dot" />
@@ -309,40 +379,16 @@ export default function Page() {
             </div>
 
             <h1 className="landing-hero">
-              Turn any PDF into your<br />
-              personal <span className="hero-accent">AI tutor</span>.
+              Upload your materials,<br />
+              get a <span className="hero-accent">full AI tutor team</span>.
             </h1>
 
             <p className="landing-sub">
-              Upload a PDF and our AI tutors will teach, quiz,<br />
-              and guide you through every concept.
+              Four specialized agents teach, quiz, and challenge you<br />
+              until you truly understand — whatever you're studying.
             </p>
 
-            <div
-              className={`upload-card${isDragOver ? ' drag-over' : ''}`}
-              onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-              onDragLeave={() => setIsDragOver(false)}
-              onDrop={e => { e.preventDefault(); setIsDragOver(false); addFiles(e.dataTransfer.files); }}
-            >
-              <div className="upload-icon-wrap">📄</div>
-              <p className="upload-title">
-                {studySetId.current ? 'Add more PDFs to your session' : 'Drop your PDF here'}
-              </p>
-              <p className="upload-hint">or click to select · PDF only</p>
-              <div className="upload-btns">
-                <label style={{ cursor: 'pointer' }}>
-                  <input type="file" accept=".pdf" multiple hidden onChange={e => addFiles(e.target.files)} />
-                  <span className="btn-primary">Browse files</span>
-                </label>
-                <button
-                  className="btn-alt"
-                  disabled={!stagedFiles.length}
-                  onClick={startLearning}
-                >
-                  Learn →
-                </button>
-              </div>
-            </div>
+            <UploadCard />
 
             {stagedFiles.length > 0 && (
               <div className="staged-files">
@@ -363,22 +409,84 @@ export default function Page() {
               </button>
             )}
 
-            <div className="landing-stats">
-              <div className="stat">
-                <span className="stat-num">4</span>
-                <span className="stat-label">AI Agents</span>
-              </div>
-              <div className="stat">
-                <span className="stat-num">∞</span>
-                <span className="stat-label">Sessions</span>
-              </div>
-              <div className="stat">
-                <span className="stat-num">~2<sub>min</sub></span>
-                <span className="stat-label">Setup time</span>
-              </div>
+            <div className="hero-pills">
+              <span className="hero-pill">4 Specialized Agents</span>
+              <span className="hero-pill">Feynman Method</span>
+              <span className="hero-pill">Auto Study Plans</span>
+              <span className="hero-pill">PDF Upload</span>
             </div>
           </div>
         </div>
+
+        {/* ─── Problem ───────────────────────────────────────────────────── */}
+        <section className="lp-section">
+          <p className="section-eyebrow">The problem</p>
+          <h2 className="section-heading">
+            Studying alone<br />is <span className="hero-accent">broken</span>.
+          </h2>
+          <div className="two-col-grid">
+            {PROBLEMS.map(p => (
+              <div key={p.title} className="problem-card">
+                <div className="problem-icon">{p.icon}</div>
+                <h3>{p.title}</h3>
+                <p>{p.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ─── Agents ────────────────────────────────────────────────────── */}
+        <section className="lp-section lp-section--bordered" id="agents">
+          <p className="section-eyebrow">Meet your tutor team</p>
+          <h2 className="section-heading">
+            Four agents, one goal:<br />make you <span className="hero-accent">truly understand</span>.
+          </h2>
+          <div className="persona-grid">
+            {AGENT_CARDS.map(a => (
+              <div key={a.title} className="persona-card">
+                <span className="persona-category">{a.category}</span>
+                <div className="persona-illustration">{a.emoji}</div>
+                <h3>{a.title}</h3>
+                <p>{a.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ─── How it works ──────────────────────────────────────────────── */}
+        <section className="lp-section lp-section--bordered" id="how-it-works">
+          <p className="section-eyebrow">How it works</p>
+          <h2 className="section-heading">
+            From upload to mastery<br />in <span className="hero-accent">four steps</span>.
+          </h2>
+          <div className="four-col-grid">
+            {HOW_STEPS.map(s => (
+              <div key={s.num} className="step-card">
+                <span className="step-num">{s.num}</span>
+                <h3>{s.title}</h3>
+                <p>{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ─── Features ──────────────────────────────────────────────────── */}
+        <section className="lp-section lp-section--bordered" id="features">
+          <p className="section-eyebrow">What's included</p>
+          <h2 className="section-heading">
+            Everything you need.<br /><span className="hero-accent">Nothing you don't</span>.
+          </h2>
+          <div className="features-grid">
+            {FEATURES.map(f => (
+              <div key={f.title} className="feature-card">
+                <span className="feature-icon">{f.icon}</span>
+                <h4>{f.title}</h4>
+                <p>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
       </>
     );
   }
@@ -526,7 +634,7 @@ export default function Page() {
             )}
             {messages.map((m, i) => (
               <div key={i} className={`msg msg-${m.role}`}>
-                <div className="msg-body prose">
+                <div className={`msg-body${m.role === 'ai' ? ' prose' : ''}`}>
                   {m.role === 'ai'
                     ? <ReactMarkdown>{m.text}</ReactMarkdown>
                     : m.text}
