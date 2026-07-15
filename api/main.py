@@ -7,8 +7,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from langchain_core.messages import HumanMessage
 from mangum import Mangum
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 from .models import AgentRequest, AgentResponse, UserUpsertRequest
 from .websocket_manager import manager
@@ -80,7 +83,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from .auth import _secret as _jwt_secret  # noqa: E402
 from .ingestion import router as ingestion_router  # noqa: E402
+
+_EXEMPT_PATHS = {"/", "/health", "/users/upsert"}
+
+
+class JWTMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if (not _jwt_secret
+                or request.method == "OPTIONS"
+                or request.url.path in _EXEMPT_PATHS
+                or request.url.path.startswith("/ws/")):
+            return await call_next(request)
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+        try:
+            from .auth import decode_token
+            payload = decode_token(auth.removeprefix("Bearer "))
+            request.state.user_sub = payload["sub"]
+        except Exception:
+            return JSONResponse({"detail": "Invalid token"}, status_code=401)
+        return await call_next(request)
+
+
+app.add_middleware(JWTMiddleware)
 app.include_router(ingestion_router)
 
 
@@ -142,13 +170,32 @@ async def chat_endpoint(request: AgentRequest) -> AgentResponse:
 
 
 @app.websocket("/ws/{session_id}")
-async def websocket_endpoint(websocket: WebSocket, session_id: str, study_set_id: str | None = None):
+async def websocket_endpoint(
+    websocket: WebSocket,
+    session_id: str,
+    study_set_id: str | None = None,
+    token: str | None = None,
+):
     await manager.connect(websocket)
+
+    user_sub = None
+    if token and _jwt_secret:
+        try:
+            from .auth import decode_token
+            user_sub = decode_token(token).get("sub")
+        except Exception:
+            await websocket.close(code=4001)
+            return
 
     thread_id = session_id
     if DATABASE_URL and study_set_id:
-        from core.db import get_thread_id
+        from core.db import get_thread_id, get_study_set_owner_sub
         thread_id = await get_thread_id(study_set_id) or session_id
+
+        owner_sub = await get_study_set_owner_sub(study_set_id)
+        if owner_sub and owner_sub != user_sub:
+            await websocket.close(code=4003)
+            return
 
     from core.progress import register, unregister
     progress_q = register(study_set_id) if study_set_id else None

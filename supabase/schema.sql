@@ -80,6 +80,7 @@ create table if not exists quizzes (
 create table if not exists quiz_attempts (
     id           uuid primary key default gen_random_uuid(),
     quiz_id      uuid not null references quizzes(id) on delete cascade,
+    user_id      uuid references users(id),
     score        int not null,
     wrong_topics jsonb,
     taken_at     timestamptz default now()

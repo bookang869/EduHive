@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from core.ingestion import MAX_PAGES, estimate_hours, run_analyze, run_pdf_ingestion
@@ -10,9 +10,9 @@ router = APIRouter()
 
 @router.post("/ingest/pdf")
 async def ingest_pdf(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    google_sub: str = Form(...),
 ):
     fname = (file.filename or "upload.pdf").lower()
     if not fname.endswith(".pdf"):
@@ -31,7 +31,8 @@ async def ingest_pdf(
         raise HTTPException(status_code=400, detail=f"PDF exceeds {MAX_PAGES}-page limit.")
 
     from core.db import create_study_set, get_user_id_by_sub
-    user_id = await get_user_id_by_sub(google_sub)  # None if not found (nullable FK)
+    google_sub = getattr(request.state, "user_sub", None)
+    user_id = await get_user_id_by_sub(google_sub) if google_sub else None
     study_set_id = await create_study_set(user_id)
     background_tasks.add_task(run_pdf_ingestion, study_set_id, file.filename or "upload.pdf", content)
     return {"status": "ingestion started", "study_set_id": study_set_id}
@@ -81,7 +82,9 @@ class QuizAttemptRequest(BaseModel):
 
 
 @router.post("/quiz-attempts")
-async def record_attempt(request: QuizAttemptRequest):
-    from core.db import insert_quiz_attempt
-    await insert_quiz_attempt(request.quiz_id, request.score, request.wrong_topics)
+async def record_attempt(request: Request, body: QuizAttemptRequest):
+    from core.db import insert_quiz_attempt, get_user_id_by_sub
+    google_sub = getattr(request.state, "user_sub", None)
+    user_id = await get_user_id_by_sub(google_sub) if google_sub else None
+    await insert_quiz_attempt(body.quiz_id, body.score, body.wrong_topics, user_id)
     return {"status": "recorded"}

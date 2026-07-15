@@ -66,8 +66,12 @@ export default function Page() {
   const connect = useCallback((sid = studySetId.current) => {
     const proto  = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const wsBase = API.replace(/^https?/, proto);
-    const url    = sid ? `${wsBase}/ws/${wsKey}?study_set_id=${sid}` : `${wsBase}/ws/${wsKey}`;
-    const ws     = new WebSocket(url);
+    const params = new URLSearchParams();
+    if (sid) params.set('study_set_id', sid);
+    if (session?.backendToken) params.set('token', session.backendToken);
+    const qs  = params.toString();
+    const url = `${wsBase}/ws/${wsKey}${qs ? `?${qs}` : ''}`;
+    const ws  = new WebSocket(url);
 
     ws.onopen  = () => setConnected(true);
     // ponytail: identity check prevents stale onclose from nulling the live ref (Strict Mode double-mount)
@@ -108,7 +112,7 @@ export default function Page() {
     };
 
     wsRef.current = ws;
-  }, [wsKey]);
+  }, [wsKey, session?.backendToken]);
 
   useEffect(() => {
     connect();
@@ -133,8 +137,11 @@ export default function Page() {
     if (file) {
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('google_sub', session?.user?.sub ?? '');
-      const res  = await fetch(`${API}/ingest/pdf`, { method: 'POST', body: fd }).catch(() => null);
+      const res  = await fetch(`${API}/ingest/pdf`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.backendToken ?? ''}` },
+        body: fd,
+      }).catch(() => null);
       if (!res || !res.ok) {
         const { detail } = await res?.json().catch(() => ({})) ?? {};
         setMessages(prev => [...prev, { role: 'ai', text: `⚠️ ${detail ?? 'Upload failed'}` }]);

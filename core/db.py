@@ -60,6 +60,20 @@ async def get_user_id_by_sub(google_sub: str) -> str | None:
     return str(row[0]) if row else None
 
 
+async def get_study_set_owner_sub(study_set_id: str) -> str | None:
+    """Returns google_sub of the study set owner, or None if unowned/anonymous."""
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """SELECT u.google_sub FROM study_sets ss
+                   LEFT JOIN users u ON ss.user_id = u.id
+                   WHERE ss.id = %s""",
+                (study_set_id,),
+            )
+            row = await cur.fetchone()
+    return row[0] if row else None
+
+
 async def get_thread_id(study_set_id: str) -> str | None:
     async with _pool.connection() as conn:
         async with conn.cursor() as cur:
@@ -251,13 +265,13 @@ async def get_study_materials(study_set_id: str) -> dict:
     }
 
 
-async def insert_quiz_attempt(quiz_id: str, score: int, wrong_topics: list[str]) -> None:
+async def insert_quiz_attempt(quiz_id: str, score: int, wrong_topics: list[str], user_id: str | None = None) -> None:
     import json as _json
     async with _pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute(
-                "INSERT INTO quiz_attempts (quiz_id, score, wrong_topics) VALUES (%s, %s, %s::jsonb)",
-                (quiz_id, score, _json.dumps(wrong_topics)),
+                "INSERT INTO quiz_attempts (quiz_id, score, wrong_topics, user_id) VALUES (%s, %s, %s::jsonb, %s)",
+                (quiz_id, score, _json.dumps(wrong_topics), user_id),
             )
         await conn.commit()
 

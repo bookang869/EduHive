@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+import { SignJWT } from 'jose';
 
 const handler = NextAuth({
   providers: [
@@ -42,6 +43,11 @@ const handler = NextAuth({
       if (session.user) {
         session.user.sub    = token.sub;
         session.accessToken = token.accessToken;
+        const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET);
+        session.backendToken = await new SignJWT({ sub: token.sub })
+          .setProtectedHeader({ alg: 'HS256' })
+          .setExpirationTime('7d')
+          .sign(secret);
       }
       return session;
     },
