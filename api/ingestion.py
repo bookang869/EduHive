@@ -90,6 +90,12 @@ class QuizAttemptRequest(BaseModel):
     wrong_topics: list[str] = []
 
 
+@router.get("/quiz-attempts/{study_set_id}")
+async def list_attempts(study_set_id: str):
+    from core.db import get_quiz_attempts_for_study_set
+    return await get_quiz_attempts_for_study_set(study_set_id)
+
+
 @router.post("/quiz-attempts")
 async def record_attempt(request: Request, body: QuizAttemptRequest):
     from core.db import insert_quiz_attempt, get_user_id_by_sub

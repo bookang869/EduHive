@@ -112,7 +112,7 @@ async def run_study_plan(study_set_id: str) -> None:
         combined = "\n\n---\n\n".join(text_chunks[:20])[:8000]
         weak = [s for s in scores if s["score"] >= 7]
         min_flashcards = max(10, len(weak) * 3)
-        min_quiz_q = max(5, len(weak) * 2)
+        min_quiz_q = max(5, len(weak) * 5)  # 5 per weak topic per PRD
 
         client = AsyncOpenAI()
         resp = await client.chat.completions.create(
@@ -131,7 +131,7 @@ async def run_study_plan(study_set_id: str) -> None:
                     '{"study_guide": "## Topic\\n...", '
                     '"flashcards": [{"front": "...", "back": "...", "topic": "..."}], '
                     '"quiz": [{"question": "...", "options": ["A) ...", "B) ...", "C) ...", "D) ..."], '
-                    '"answer": "A", "explanation": "..."}]}'
+                    '"answer": "A", "explanation": "...", "topic": "topic name"}]}'
                 ),
             }],
             response_format={"type": "json_object"},

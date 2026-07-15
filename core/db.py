@@ -276,6 +276,21 @@ async def insert_quiz_attempt(quiz_id: str, score: int, wrong_topics: list[str],
         await conn.commit()
 
 
+async def get_quiz_attempts_for_study_set(study_set_id: str) -> list[dict]:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """SELECT qa.id, qa.score, qa.wrong_topics, qa.taken_at
+                   FROM quiz_attempts qa
+                   JOIN quizzes q ON qa.quiz_id = q.id
+                   WHERE q.study_set_id = %s
+                   ORDER BY qa.taken_at DESC""",
+                (study_set_id,),
+            )
+            rows = await cur.fetchall()
+    return [{"id": str(r[0]), "score": r[1], "wrong_topics": r[2] or [], "taken_at": str(r[3])} for r in rows]
+
+
 async def get_all_chunks(study_set_id: str) -> list[str]:
     """Retrieve all text chunks for a study_set (used by weak-topic analysis)."""
     async with _pool.connection() as conn:

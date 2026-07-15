@@ -86,9 +86,9 @@ create table if not exists quiz_attempts (
     taken_at     timestamptz default now()
 );
 
--- ivfflat indexes for cosine similarity search (lists=100 suits up to ~1M rows)
+-- HNSW indexes for cosine similarity search (performs well at all dataset sizes)
 create index if not exists file_chunks_embedding_idx
-    on file_chunks using ivfflat (embedding vector_cosine_ops) with (lists = 100);
+    on file_chunks using hnsw (embedding vector_cosine_ops) with (m = 16, ef_construction = 64);
 
 create index if not exists web_chunks_embedding_idx
-    on web_chunks using ivfflat (embedding vector_cosine_ops) with (lists = 100);
+    on web_chunks using hnsw (embedding vector_cosine_ops) with (m = 16, ef_construction = 64);

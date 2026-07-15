@@ -71,11 +71,15 @@ export default function Page() {
   const [ingestProgress, setIngestProgress] = useState({ done: 0, total: 0 });
   const [ingestError,    setIngestError]    = useState(null);
 
-  const [messages,    setMessages]    = useState([]);
-  const [input,       setInput]       = useState('');
-  const [connected,   setConnected]   = useState(false);
-  const [activeAgent, setActiveAgent] = useState(null);
-  const [pipeline,    setPipeline]    = useState({});
+  const [messages,       setMessages]       = useState([]);
+  const [input,          setInput]          = useState('');
+  const [connected,      setConnected]      = useState(false);
+  const [activeAgent,    setActiveAgent]    = useState(null);
+  const [pipeline,       setPipeline]       = useState({});
+  const [studyMaterials, setStudyMaterials] = useState(null);
+  const [quizAttempts,   setQuizAttempts]   = useState([]);
+  const [showGuide,      setShowGuide]      = useState(false);
+  const [restoredSid,    setRestoredSid]    = useState(null);
 
   const wsRef          = useRef(null);
   const sessionId      = useRef(Date.now().toString(36));
@@ -143,6 +147,32 @@ export default function Page() {
     connect(sid ?? studySetId.current);
   }, [connect]);
 
+  // Restore study_set_id from localStorage on mount
+  useEffect(() => {
+    const sid = localStorage.getItem('eduhive_sid');
+    if (sid) { studySetId.current = sid; setRestoredSid(sid); }
+  }, []);
+
+  // Fetch study materials once study_plan pipeline is done
+  useEffect(() => {
+    const sid = studySetId.current;
+    if (!sid || pipeline.study_plan !== 'done') return;
+    fetch(`${API}/study-materials/${sid}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setStudyMaterials(d); })
+      .catch(() => null);
+  }, [pipeline.study_plan]);
+
+  // Fetch previous quiz attempts when entering chat
+  useEffect(() => {
+    const sid = studySetId.current;
+    if (phase !== 'chat' || !sid) return;
+    fetch(`${API}/quiz-attempts/${sid}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setQuizAttempts(d))
+      .catch(() => null);
+  }, [phase]);
+
   useEffect(() => () => {
     wsRef.current?.close();
     clearInterval(pollRef.current);
@@ -191,6 +221,8 @@ export default function Page() {
       if (!sid) {
         sid = data.study_set_id;
         studySetId.current = sid;
+        localStorage.setItem('eduhive_sid', sid);
+        setRestoredSid(sid);
       }
       setIngestProgress({ done: i + 1, total: stagedFiles.length });
     }
@@ -325,9 +357,9 @@ export default function Page() {
 
             {ingestError && <p className="error-msg">{ingestError}</p>}
 
-            {studySetId.current && (
-              <button className="text-link" onClick={() => enterChat(studySetId.current)}>
-                ← Back to chat
+            {restoredSid && (
+              <button className="text-link" onClick={() => enterChat(restoredSid)}>
+                ← Resume session
               </button>
             )}
 
@@ -397,6 +429,19 @@ export default function Page() {
   return (
     <>
       <TopNav activeStep={2} connected={connected} showStatus={true} onLogoClick={() => { wsRef.current?.close(); setPhase('upload'); }} />
+      {showGuide && studyMaterials?.guide && (
+        <div className="guide-overlay" onClick={() => setShowGuide(false)}>
+          <div className="guide-panel" onClick={e => e.stopPropagation()}>
+            <div className="guide-header">
+              <span>Study Guide</span>
+              <button className="guide-close" onClick={() => setShowGuide(false)}>✕</button>
+            </div>
+            <div className="guide-body prose">
+              <ReactMarkdown>{studyMaterials.guide}</ReactMarkdown>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="chat-shell">
         <aside className="sidebar">
           <p className="sidebar-label">Agents</p>
@@ -409,6 +454,43 @@ export default function Page() {
               </div>
             ))}
           </nav>
+
+          {studyMaterials && (
+            <>
+              <p className="sidebar-label">Study Materials</p>
+              <div className="materials-list">
+                {studyMaterials.guide && (
+                  <button className="materials-item" onClick={() => setShowGuide(true)}>
+                    📖 Study Guide
+                  </button>
+                )}
+                {studyMaterials.flashcards?.length > 0 && (
+                  <div className="materials-item">
+                    🃏 Flashcards ({studyMaterials.flashcards.length})
+                  </div>
+                )}
+                {studyMaterials.questions?.length > 0 && (
+                  <div className="materials-item">
+                    ✏️ Quiz ({studyMaterials.questions.length} questions)
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {quizAttempts.length > 0 && (
+            <>
+              <p className="sidebar-label">Recent Scores</p>
+              <div className="attempts-list">
+                {quizAttempts.slice(0, 3).map(a => (
+                  <div key={a.id} className="attempt-row">
+                    <span className="attempt-score">{a.score}</span>
+                    <span className="attempt-date">{new Date(a.taken_at).toLocaleDateString()}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="sidebar-footer">
             <button
