@@ -63,11 +63,11 @@ export default function Page() {
 
   const wsKey = session?.user?.sub ?? sessionId.current;
 
-  const connect = useCallback(() => {
-    studySetId.current = null;
+  const connect = useCallback((sid = studySetId.current) => {
     const proto  = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const wsBase = API.replace(/^https?/, proto);
-    const ws     = new WebSocket(`${wsBase}/ws/${wsKey}`);
+    const url    = sid ? `${wsBase}/ws/${wsKey}?study_set_id=${sid}` : `${wsBase}/ws/${wsKey}`;
+    const ws     = new WebSocket(url);
 
     ws.onopen  = () => setConnected(true);
     // ponytail: identity check prevents stale onclose from nulling the live ref (Strict Mode double-mount)
@@ -78,9 +78,7 @@ export default function Page() {
       let frame;
       try { frame = JSON.parse(ev.data); } catch { return; }
 
-      if (frame.type === 'session') {
-        studySetId.current = frame.study_set_id;
-      } else if (frame.type === 'token') {
+      if (frame.type === 'token') {
         setMessages(prev => {
           const last = prev[prev.length - 1];
           if (last?.role === 'ai' && last?.streaming) {
@@ -133,19 +131,20 @@ export default function Page() {
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
     if (file) {
-      if (!studySetId.current) {
-        setMessages(prev => [...prev, { role: 'ai', text: '⚠️ Still connecting — please try again in a moment.' }]);
-        return;
-      }
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('study_set_id', studySetId.current);
-      const res = await fetch(`${API}/ingest/pdf`, { method: 'POST', body: fd }).catch(() => null);
-      if (res && !res.ok) {
-        const { detail } = await res.json().catch(() => ({ detail: 'Upload failed' }));
-        setMessages(prev => [...prev, { role: 'ai', text: `⚠️ ${detail}` }]);
+      fd.append('google_sub', session?.user?.sub ?? '');
+      const res  = await fetch(`${API}/ingest/pdf`, { method: 'POST', body: fd }).catch(() => null);
+      if (!res || !res.ok) {
+        const { detail } = await res?.json().catch(() => ({})) ?? {};
+        setMessages(prev => [...prev, { role: 'ai', text: `⚠️ ${detail ?? 'Upload failed'}` }]);
         return;
       }
+      const { study_set_id } = await res.json();
+      studySetId.current = study_set_id;
+      // reconnect WS so the backend binds this session to the new study set
+      wsRef.current?.close();
+      connect(study_set_id);
       setFile(null);
     }
 

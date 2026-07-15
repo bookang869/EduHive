@@ -38,32 +38,70 @@ async def upsert_user(google_sub: str, email: str, name: str | None) -> None:
         await conn.commit()
 
 
-async def create_study_set(thread_id: str) -> str:
-    """Create or return existing study_set for this WebSocket thread."""
+async def create_study_set(user_id: str | None = None) -> str:
+    import uuid as _uuid
+    thread_id = str(_uuid.uuid4())
     async with _pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute(
-                """INSERT INTO study_sets (thread_id) VALUES (%s)
-                   ON CONFLICT (thread_id) DO UPDATE SET thread_id = EXCLUDED.thread_id
-                   RETURNING id""",
-                (thread_id,),
+                "INSERT INTO study_sets (user_id, thread_id) VALUES (%s, %s) RETURNING id",
+                (user_id, thread_id),
             )
             row = await cur.fetchone()
         await conn.commit()
     return str(row[0])
 
 
-async def insert_file(study_set_id: str, filename: str, extracted_text: str, page_count: int) -> str:
+async def get_user_id_by_sub(google_sub: str) -> str | None:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT id FROM users WHERE google_sub = %s", (google_sub,))
+            row = await cur.fetchone()
+    return str(row[0]) if row else None
+
+
+async def get_thread_id(study_set_id: str) -> str | None:
     async with _pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute(
-                """INSERT INTO files (study_set_id, storage_path, filename, extracted_text, page_count)
-                   VALUES (%s, %s, %s, %s, %s) RETURNING id""",
-                (study_set_id, f"uploads/{filename}", filename, extracted_text, page_count),
+                "SELECT thread_id FROM study_sets WHERE id = %s",
+                (study_set_id,),
+            )
+            row = await cur.fetchone()
+    return row[0] if row else None
+
+
+async def insert_file(study_set_id: str, filename: str, extracted_text: str, page_count: int, status: str = 'processing') -> str:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """INSERT INTO files (study_set_id, storage_path, filename, extracted_text, page_count, status)
+                   VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
+                (study_set_id, f"uploads/{filename}", filename, extracted_text, page_count, status),
             )
             row = await cur.fetchone()
         await conn.commit()
     return str(row[0])
+
+
+async def update_file_status(file_id: str, status: str) -> None:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("UPDATE files SET status = %s WHERE id = %s", (status, file_id))
+        await conn.commit()
+
+
+async def get_ingestion_status(study_set_id: str) -> str:
+    async with _pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """SELECT COUNT(*), COUNT(*) FILTER (WHERE status = 'complete')
+                   FROM files WHERE study_set_id = %s""",
+                (study_set_id,),
+            )
+            row = await cur.fetchone()
+    total, done = row
+    return "complete" if total > 0 and total == done else "processing"
 
 
 async def insert_file_chunks(file_id: str, study_set_id: str, chunks: list[str]) -> None:

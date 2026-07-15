@@ -24,6 +24,7 @@ create table if not exists files (
     filename        text not null,
     extracted_text  text,
     page_count      int,
+    status          text not null default 'pending',
     created_at      timestamptz default now()
 );
 

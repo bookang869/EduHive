@@ -12,7 +12,7 @@ router = APIRouter()
 async def ingest_pdf(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    study_set_id: str = Form(...),
+    google_sub: str = Form(...),
 ):
     fname = (file.filename or "upload.pdf").lower()
     if not fname.endswith(".pdf"):
@@ -30,8 +30,17 @@ async def ingest_pdf(
     if pages > MAX_PAGES:
         raise HTTPException(status_code=400, detail=f"PDF exceeds {MAX_PAGES}-page limit.")
 
+    from core.db import create_study_set, get_user_id_by_sub
+    user_id = await get_user_id_by_sub(google_sub)  # None if not found (nullable FK)
+    study_set_id = await create_study_set(user_id)
     background_tasks.add_task(run_pdf_ingestion, study_set_id, file.filename or "upload.pdf", content)
     return {"status": "ingestion started", "study_set_id": study_set_id}
+
+
+@router.get("/ingest/status")
+async def ingest_status(study_set_id: str):
+    from core.db import get_ingestion_status
+    return {"status": await get_ingestion_status(study_set_id)}
 
 
 

@@ -142,19 +142,18 @@ async def chat_endpoint(request: AgentRequest) -> AgentResponse:
 
 
 @app.websocket("/ws/{session_id}")
-async def websocket_endpoint(websocket: WebSocket, session_id: str):
+async def websocket_endpoint(websocket: WebSocket, session_id: str, study_set_id: str | None = None):
     await manager.connect(websocket)
 
-    study_set_id: str | None = None
-    if DATABASE_URL:
-        from core.db import create_study_set
-        study_set_id = await create_study_set(session_id)
+    thread_id = session_id
+    if DATABASE_URL and study_set_id:
+        from core.db import get_thread_id
+        thread_id = await get_thread_id(study_set_id) or session_id
 
     from core.progress import register, unregister
     progress_q = register(study_set_id) if study_set_id else None
 
-    # handshake — client needs study_set_id before uploading PDFs
-    await websocket.send_json({"type": "session", "study_set_id": study_set_id, "thread_id": session_id})
+    await websocket.send_json({"type": "session", "study_set_id": study_set_id, "thread_id": thread_id})
 
     try:
         while True:
@@ -167,7 +166,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             except (json.JSONDecodeError, AttributeError):
                 message = raw
 
-            config = {"configurable": {"thread_id": session_id}}
+            config = {"configurable": {"thread_id": thread_id}}
             invoke_input: dict = {"messages": [HumanMessage(content=message)]}
             if study_set_id:
                 invoke_input["study_set_id"] = study_set_id

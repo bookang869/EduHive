@@ -31,8 +31,7 @@ async def db_pool():
 async def study_set(db_pool):
     """Create a throwaway study_set row and clean up after the test."""
     from core.db import create_study_set
-    thread_id = f"test-{uuid.uuid4()}"
-    sid = await create_study_set(thread_id)
+    sid = await create_study_set()
     yield sid
     # delete children first (FK order) then parent
     async with db_pool.connection() as conn:
@@ -46,14 +45,12 @@ async def study_set(db_pool):
 
 
 async def test_create_study_set(db_pool):
-    from core.db import create_study_set
-    thread_id = f"test-{uuid.uuid4()}"
-    sid = await create_study_set(thread_id)
+    from core.db import create_study_set, get_thread_id
+    sid = await create_study_set()
     assert sid and len(sid) > 10
 
-    # idempotent — same thread_id returns same id
-    sid2 = await create_study_set(thread_id)
-    assert sid == sid2
+    thread_id = await get_thread_id(sid)
+    assert thread_id and len(thread_id) > 10
 
     async with db_pool.connection() as conn:
         async with conn.cursor() as cur:

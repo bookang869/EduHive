@@ -34,19 +34,23 @@ def chunk_text(text: str, size: int = CHUNK_SIZE) -> list[str]:
 async def run_pdf_ingestion(study_set_id: str, filename: str, content: bytes) -> None:
     import asyncio
     from pypdf import PdfReader
-    from core.db import insert_file, insert_file_chunks
+    from core.db import insert_file, insert_file_chunks, update_file_status
     from core.progress import push
 
+    file_id = None
     try:
         await push(study_set_id, {"type": "task_progress", "stage": "ingestion", "done": False})
         reader = PdfReader(io.BytesIO(content))
         text = "\n".join(page.extract_text() or "" for page in reader.pages)
         chunks = chunk_text(text)
-        file_id = await insert_file(study_set_id, filename, text, len(reader.pages))
+        file_id = await insert_file(study_set_id, filename, text, len(reader.pages))  # status='processing'
         await insert_file_chunks(file_id, study_set_id, chunks)
+        await update_file_status(file_id, "complete")
         await push(study_set_id, {"type": "task_progress", "stage": "ingestion", "done": True})
         asyncio.create_task(run_analyze(study_set_id))
     except Exception as e:
+        if file_id:
+            await update_file_status(file_id, "failed")
         await push(study_set_id, {"type": "task_progress", "stage": "ingestion", "done": True, "error": str(e)})
 
 
