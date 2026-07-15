@@ -23,4 +23,4 @@ frontend/package-lock.json
 .DS_Store
 
 # LangGraph
-.langgraph_api/
+.langgraph_api/PRD.md
