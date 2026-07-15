@@ -126,7 +126,7 @@ async def run_study_plan(study_set_id: str) -> None:
                     f"Generate ALL THREE of the following in a single JSON response:\n"
                     f"1. A comprehensive study guide in markdown (## headers per topic, bullet points, key concepts)\n"
                     f"2. At least {min_flashcards} flashcards (more for harder topics with score >= 7)\n"
-                    f"3. At least {min_quiz_q} quiz questions covering weak topics (mix of MCQ and short answer)\n\n"
+                    f"3. At least {min_quiz_q} MCQ quiz questions covering weak topics\n\n"
                     'Return JSON with this exact shape:\n'
                     '{"study_guide": "## Topic\\n...", '
                     '"flashcards": [{"front": "...", "back": "...", "topic": "..."}], '

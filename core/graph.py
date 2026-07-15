@@ -16,12 +16,15 @@ def router_check(state: TutorState) -> str:
     return state.get("current_agent", "classification_agent")
 
 
-def _last_human_query(state: TutorState) -> str:
-    """Extract the last HumanMessage content for use as the RAG query."""
+def _rag_query(state: TutorState) -> str:
+    """Collect the last 3 HumanMessage contents as the RAG query."""
+    msgs = []
     for msg in reversed(state.get("messages", [])):
         if isinstance(msg, HumanMessage):
-            return msg.content
-    return ""
+            msgs.append(msg.content)
+            if len(msgs) == 3:
+                break
+    return "\n".join(reversed(msgs))
 
 
 def make_rag_node(agent, inject_quiz=False):
@@ -33,7 +36,7 @@ def make_rag_node(agent, inject_quiz=False):
         updated["rag_context"] = None
         sid = state.get("study_set_id")
         if sid:
-            query = _last_human_query(state)
+            query = _rag_query(state)
             if query:
                 chunks = await retrieve_context(query, sid)
                 if chunks:
