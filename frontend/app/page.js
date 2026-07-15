@@ -33,10 +33,10 @@ const STEPS = [
   { n: '04', label: 'Summary' },
 ];
 
-function TopNav({ activeStep, connected, showStatus, onSignOut }) {
+function TopNav({ activeStep, connected, showStatus, onSignOut, onLogoClick }) {
   return (
     <header className="top-nav">
-      <div className="nav-brand">
+      <div className="nav-brand" onClick={onLogoClick} style={{ cursor: onLogoClick ? 'pointer' : 'default' }}>
         <div className="nav-logo">E</div>
         <span className="nav-brand-name">EduHive</span>
       </div>
@@ -361,7 +361,7 @@ export default function Page() {
 
     return (
       <>
-        <TopNav activeStep={1} connected={false} showStatus={false} />
+        <TopNav activeStep={1} connected={false} showStatus={false} onLogoClick={() => { clearInterval(pollRef.current); setPhase('upload'); }} />
         <div className="page">
           <div className="analyze-screen">
             <div className="landing-badge">
@@ -396,7 +396,7 @@ export default function Page() {
 
   return (
     <>
-      <TopNav activeStep={2} connected={connected} showStatus={true} />
+      <TopNav activeStep={2} connected={connected} showStatus={true} onLogoClick={() => { wsRef.current?.close(); setPhase('upload'); }} />
       <div className="chat-shell">
         <aside className="sidebar">
           <p className="sidebar-label">Agents</p>
